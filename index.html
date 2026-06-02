@@ -3,17 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>StockBox — Inventory</title>
+<title>OVS Inventory App</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='13' fill='%23fbba07'/%3E%3Ctext x='32' y='43' font-family='Arial,Helvetica,sans-serif' font-size='25' font-weight='bold' letter-spacing='0.5' text-anchor='middle' fill='%23001526'%3EOVS%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f3efe6; --panel:#fbf9f4; --ink:#161412; --muted:#6b6459;
-    --accent:#ff5b04; --accent-ink:#fff; --line:rgba(20,16,12,.14);
-    --line-strong:rgba(20,16,12,.28); --ok:#2f7d32; --warn:#b4690e; --bad:#b3261e;
-    --shadow:0 1px 0 rgba(20,16,12,.06), 0 8px 24px -16px rgba(20,16,12,.4);
+    --bg:#f5f5f3; --panel:#ffffff; --ink:#001526; --muted:#5b6b78;
+    --accent:#fbba07; --accent-ink:#001526; --line:rgba(0,21,38,.12);
+    --line-strong:rgba(0,21,38,.26); --ok:#2f7d32; --warn:#b4690e; --bad:#b3261e;
+    --shadow:0 1px 0 rgba(0,21,38,.05), 0 8px 24px -16px rgba(0,21,38,.45);
     --r:10px;
+    --ease-out:cubic-bezier(0.23,1,0.32,1);
+    --ease-drawer:cubic-bezier(0.32,0.72,0,1);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -35,9 +38,9 @@
     display:flex;align-items:center;gap:12px;padding:12px 16px;
     padding-top:max(12px,env(safe-area-inset-top));
   }
-  .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;font-size:20px;letter-spacing:.02em;display:flex;align-items:center;gap:9px}
-  .brand .dot{width:14px;height:14px;background:var(--accent);border-radius:2px;transform:rotate(45deg)}
-  .brand small{font-family:"IBM Plex Mono";font-weight:500;font-size:10px;color:#bfb7aa;letter-spacing:.18em;text-transform:uppercase}
+  .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;font-size:20px;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+  .ovsmark{display:inline-flex;align-items:center;background:var(--accent);color:var(--ink);font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em;padding:3px 9px 4px;border-radius:6px;line-height:1}
+  .brand small{font-family:"IBM Plex Mono";font-weight:500;font-size:10px;color:#8fa6b3;letter-spacing:.18em;text-transform:uppercase}
   header.top .grow{flex:1}
   .iconbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#fff;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
   .iconbtn:hover{background:rgba(255,255,255,.2)}
@@ -58,21 +61,33 @@
   input.t:focus,select.t:focus,textarea.t:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
   .row{display:flex;gap:10px;flex-wrap:wrap}
   .row>*{flex:1;min-width:0}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:600;font-size:14px;cursor:pointer}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:600;font-size:14px;cursor:pointer;transition:background 140ms ease,filter 140ms ease,transform 130ms var(--ease-out)}
+  .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.6;transform:none}
   .btn:hover{background:#000}
   .btn.acc{background:var(--accent);color:var(--accent-ink)}
   .btn.acc:hover{filter:brightness(.95)}
   .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
   .btn.ghost:hover{background:#fff}
+  .btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bad);transition:background 140ms ease,color 140ms ease,transform 130ms var(--ease-out)}
+  .btn.danger:hover{background:var(--bad);color:#fff}
+  .del{border:1px solid var(--line-strong);background:#fff;color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:15px;cursor:pointer;flex:none;transition:border-color 140ms ease,color 140ms ease,transform 130ms var(--ease-out)}
+  .del:hover{border-color:var(--bad);color:var(--bad);background:#fff}
+  .del:active{transform:scale(.94)}
+  .del.sm{width:30px;height:30px;font-size:13px;border-radius:7px}
+  .iconbtn{transition:background 140ms ease,transform 130ms var(--ease-out)}
+  .iconbtn:active{transform:scale(.96)}
+  .stepper button{transition:background 120ms ease,transform 110ms var(--ease-out)}
+  .stepper button:active{transform:scale(.9)}
   .btn.sm{padding:7px 11px;font-size:13px;border-radius:7px}
   .pill{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono";font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);background:#fff}
   .tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
   .tag.stored{background:#e9f3ea;color:var(--ok)} .tag.opened{background:#fbf0df;color:var(--warn)} .tag.empty{background:#f6e6e5;color:var(--bad)}
   .empty{text-align:center;color:var(--muted);padding:48px 16px}
   .empty .big{font-size:40px;margin-bottom:8px}
-  .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;vertical-align:-3px}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;z-index:80;box-shadow:0 10px 30px -10px #000;opacity:0;pointer-events:none;transition:.25s}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;z-index:80;box-shadow:0 10px 30px -10px #000;opacity:0;pointer-events:none;transition:opacity 200ms ease-out,transform 240ms var(--ease-out)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .grid{display:grid;gap:12px}
   @media(min-width:620px){.grid.two{grid-template-columns:1fr 1fr}}
@@ -81,11 +96,11 @@
   .searchbar{display:flex;gap:0;align-items:stretch;border:2px solid var(--ink);border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--shadow)}
   .searchbar input{flex:1;border:none;padding:16px 16px;font-size:17px;font-weight:500}
   .searchbar input:focus{outline:none}
-  .searchbar button{border:none;background:var(--accent);color:#fff;padding:0 20px;font-weight:700;cursor:pointer;font-size:15px}
+  .searchbar button{border:none;background:var(--accent);color:var(--accent-ink);padding:0 20px;font-weight:700;cursor:pointer;font-size:15px}
   .resbox{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel);box-shadow:var(--shadow)}
   .resbox .hd{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--ink);color:#fff;cursor:pointer}
   .resbox .hd .code{font-family:"IBM Plex Mono";font-weight:700;font-size:16px}
-  .resbox .hd .zone{font-size:12px;color:#cfc8bb}
+  .resbox .hd .zone{font-size:12px;color:#9fb4c0}
   .resrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid var(--line)}
   .resrow .qty{margin-left:auto;font-family:"IBM Plex Mono";font-weight:700}
   .thumb{width:42px;height:42px;border-radius:7px;background:#e7e1d5 center/cover;flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px}
@@ -108,6 +123,58 @@
   .stepper button:hover{background:var(--bg)}
   .stepper input{width:54px;border:none;border-left:1px solid var(--line);border-right:1px solid var(--line);text-align:center;font-family:"IBM Plex Mono";font-weight:700;height:36px}
   .stepper input:focus{outline:none}
+
+  .dmodal .sheet{max-width:440px}
+  @media(min-width:620px){.dmodal .sheet{border-radius:16px}}
+  .dmodal .sbody{padding:20px 20px 4px}
+  .dmodal .sfoot{gap:8px}
+  .dfield{margin-bottom:16px}
+  .dfield:last-child{margin-bottom:0}
+
+  /* add-item modal */
+  .modal{position:fixed;inset:0;z-index:60;background:rgba(20,16,12,.5);display:flex;align-items:flex-end;justify-content:center;padding:0;opacity:0;transition:opacity 220ms ease-out}
+  .modal.open{opacity:1}
+  @media(min-width:620px){.modal{align-items:center;padding:20px}}
+  .sheet{background:var(--panel);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;box-shadow:0 -10px 40px -10px rgba(0,0,0,.4);transform:translateY(16px) scale(.985);opacity:0;transition:transform 360ms var(--ease-drawer),opacity 220ms ease-out}
+  .modal.open .sheet{transform:none;opacity:1}
+  @media(max-width:619px){
+    .sheet{transform:translateY(100%);opacity:1;transition:transform 380ms var(--ease-drawer)}
+    .modal.open .sheet{transform:translateY(0)}
+  }
+  .qrhint{font-size:12px;color:var(--muted);max-width:150px;margin:0 auto;line-height:1.4;border:1px dashed var(--line-strong);border-radius:8px;padding:10px}
+  @media(prefers-reduced-motion:reduce){
+    .modal,.modal .sheet{transition:opacity 180ms ease}
+    .sheet{transform:none}
+    .btn:active,.del:active,.iconbtn:active,.stepper button:active{transform:none}
+    .toast,.toast.show{transform:translateX(-50%);transition:opacity 180ms ease}
+  }
+  @media(min-width:620px){.sheet{border-radius:16px}}
+  .sheet .shd{position:sticky;top:0;background:var(--ink);color:#fff;display:flex;align-items:center;gap:10px;padding:14px 16px}
+  .sheet .shd .code{font-family:"IBM Plex Mono";font-weight:700}
+  .sheet .shd .count{margin-left:auto;font-family:"IBM Plex Mono";font-size:12px;background:var(--accent);color:var(--accent-ink);padding:2px 9px;border-radius:999px;font-weight:700}
+  .sheet .sbody{padding:16px}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fgrid .full{grid-column:1/-1}
+  .sticky-note{font-size:11px;color:var(--muted);margin-top:3px}
+  .recent{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;max-height:140px;overflow:auto}
+  .recent .r{display:flex;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)}
+  .recent .r .mono{color:var(--muted)}
+  .sheet .sfoot{position:sticky;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding:12px 16px;display:flex;gap:10px}
+  .sheet .sfoot .btn{flex:1}
+
+  /* departments */
+  .sec-label{font-family:"IBM Plex Sans Condensed";font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:18px 0 10px}
+  .dept-group{margin-bottom:12px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line-strong);box-shadow:var(--shadow)}
+  .dept-group-hd{background:var(--ink);color:#fff;display:flex;align-items:center;gap:8px;padding:11px 14px;flex-wrap:wrap}
+  .dg-code{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;letter-spacing:.04em}
+  .dg-name{font-size:13px;color:#9fb4c0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dcnt{font-family:"IBM Plex Mono";font-size:11px;font-weight:700;background:var(--accent);color:var(--accent-ink);padding:2px 8px;border-radius:999px;flex:none}
+  .hdbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;flex:none;transition:background 140ms ease,transform 130ms var(--ease-out)}
+  .hdbtn:hover{background:rgba(255,255,255,.22)}
+  .hdbtn:active{transform:scale(.97)}
+  .hdbtn.acc{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+  .hdbtn.acc:hover{filter:brightness(.95)}
+  .dept-empty{padding:14px 16px;font-size:13px;color:var(--muted);background:var(--panel)}
 
   /* import */
   .drop{border:2px dashed var(--line-strong);border-radius:12px;padding:34px 18px;text-align:center;background:var(--panel);cursor:pointer}
@@ -134,7 +201,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="dot"></span>StockBox<small>inventory</small></div>
+  <div class="brand"><span class="ovsmark">OVS</span><small>inventory</small></div>
   <div class="grow"></div>
   <button class="iconbtn" id="gotoBox">⌗ Go to box</button>
   <button class="iconbtn" onclick="location.hash='#/settings'">⚙</button>
@@ -149,7 +216,7 @@
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm';
+import * as XLSX from 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm';
 import QRCode from 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm';
 
 /* ---------- config (baked-in defaults; override in Settings) ---------- */
@@ -162,10 +229,14 @@ const LS = {
 const CFG = {
   get url(){return LS.get('sb_url')||DEFAULT_URL},
   get key(){return LS.get('sb_key')||DEFAULT_KEY},
-  set(u,k){LS.set('sb_url',u);LS.set('sb_key',k);}
+  get pubUrl(){return LS.get('pub_url')||''},
+  set(u,k){LS.set('sb_url',u);LS.set('sb_key',k);},
+  setPub(u){LS.set('pub_url',u);}
 };
 let sb = null;
-function client(){ if(sb) return sb; if(CFG.url&&CFG.key){ sb=createClient(CFG.url,CFG.key); } return sb; }
+function initClient(){ if(CFG.url&&CFG.key) sb=createClient(CFG.url,CFG.key); }
+initClient();
+function client(){ return sb; }
 
 /* ---------- tiny helpers ---------- */
 const app = document.getElementById('app');
@@ -175,6 +246,92 @@ let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400);}
 function loading(){app.innerHTML='<div class="empty"><div class="big">⏳</div>Loading…</div>';}
 const baseUrl = ()=> location.origin+location.pathname;
+// Base used for QR codes. Prefers the saved public URL; falls back to the
+// current address only if it's a real http(s) origin (not file:// or a sandbox).
+function appBase(){
+  if(CFG.pubUrl) return CFG.pubUrl.replace(/\/+$/,'')+'/';
+  const o=location.origin;
+  if(o && o!=='null' && /^https?:$/.test(location.protocol)) return baseUrl();
+  return '';
+}
+
+/* ---------- custom dialog helpers ---------- */
+function _dlgOverlay(content, narrow=true){
+  const el=document.createElement('div');
+  el.className='modal dmodal';
+  el.innerHTML=`<div class="sheet"${narrow?' style="max-width:440px"':''}>${content}</div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('open')));
+  return el;
+}
+function _dlgClose(el, val, resolve){
+  el.classList.remove('open');
+  setTimeout(()=>el.remove(),200);
+  resolve(val);
+}
+// showDialog({title, fields:[{id,label,type,placeholder,value,required,hint,options,mono}], confirmLabel, danger})
+// returns Promise<object|null>
+function showDialog({title,fields=[],confirmLabel='Save',danger=false}){
+  return new Promise(resolve=>{
+    const body=fields.map(f=>`
+      <div class="dfield">
+        <label class="f">${esc(f.label)}${f.required?'':' <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">— optional</span>'}</label>
+        ${f.type==='select'
+          ?`<select class="t" id="df_${f.id}">${(f.options||[]).map(o=>`<option value="${esc(o.value)}"${o.value===(f.value||'')?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`
+          :`<input class="t${f.mono?' mono':''}" id="df_${f.id}" type="${f.type||'text'}" placeholder="${esc(f.placeholder||'')}" value="${esc(f.value||'')}" autocomplete="off">`}
+        ${f.hint?`<div class="sticky-note">${esc(f.hint)}</div>`:''}
+      </div>`).join('');
+    const ov=_dlgOverlay(`
+      <div class="shd"><span style="font-size:15px;font-weight:700">${esc(title)}</span></div>
+      <div class="sbody dmodal" style="padding:20px 20px 4px">${body}</div>
+      <div class="sfoot">
+        <button class="btn ghost" id="_dc">Cancel</button>
+        <button class="btn ${danger?'danger':'acc'}" id="_dok">${esc(confirmLabel)}</button>
+      </div>`);
+    const close=v=>_dlgClose(ov,v,resolve);
+    ov.addEventListener('click',e=>{if(e.target===ov)close(null);});
+    ov.querySelector('#_dc').onclick=()=>close(null);
+    ov.querySelector('#_dok').onclick=()=>{
+      const out={};let ok=true;
+      fields.forEach(f=>{
+        const el=ov.querySelector(`#df_${f.id}`);
+        const v=el.value.trim();
+        if(f.required&&!v){el.style.outline='2px solid var(--bad)';el.focus();ok=false;return;}
+        out[f.id]=v||null;
+      });
+      if(ok)close(out);
+    };
+    ov.addEventListener('keydown',e=>{
+      if(e.key==='Escape')close(null);
+      if(e.key==='Enter'&&e.target.tagName!=='TEXTAREA'&&e.target.tagName!=='SELECT'){e.preventDefault();ov.querySelector('#_dok').click();}
+    });
+    setTimeout(()=>{const f=ov.querySelector('input,select');if(f)f.focus();},60);
+  });
+}
+// showConfirm({title, message, confirmLabel, danger})
+// returns Promise<boolean>
+function showConfirm({title,message='',confirmLabel='Delete',danger=true}){
+  return new Promise(resolve=>{
+    const ov=_dlgOverlay(`
+      <div class="shd"><span style="font-size:15px;font-weight:700">${esc(title)}</span></div>
+      <div class="sbody dmodal" style="padding:20px 20px 12px">
+        <p style="margin:0;font-size:14px;color:var(--muted);line-height:1.6;white-space:pre-line">${esc(message)}</p>
+      </div>
+      <div class="sfoot">
+        <button class="btn ghost" id="_dc">Cancel</button>
+        <button class="btn ${danger?'danger':'acc'}" id="_dok">${esc(confirmLabel)}</button>
+      </div>`);
+    const close=v=>_dlgClose(ov,v,resolve);
+    ov.addEventListener('click',e=>{if(e.target===ov)close(false);});
+    ov.querySelector('#_dc').onclick=()=>close(false);
+    ov.querySelector('#_dok').onclick=()=>close(true);
+    ov.addEventListener('keydown',e=>{
+      if(e.key==='Escape')close(false);
+      if(e.key==='Enter'){e.preventDefault();close(true);}
+    });
+    setTimeout(()=>{ov.querySelector('#_dok').focus();},60);
+  });
+}
 
 /* ---------- router ---------- */
 window.addEventListener('hashchange', route);
@@ -184,7 +341,10 @@ window.addEventListener('load', ()=>{
   if(p.get('box')){ location.replace(baseUrl()+'#/box/'+encodeURIComponent(p.get('box'))); return; }
   route();
 });
-document.getElementById('gotoBox').onclick=()=>{const c=prompt('Box code (e.g. B-0001)');if(c)location.hash='#/box/'+encodeURIComponent(c.trim());};
+document.getElementById('gotoBox').onclick=async()=>{
+  const r=await showDialog({title:'Go to box',fields:[{id:'code',label:'Box code',placeholder:'e.g. B-0001',required:true,mono:true}],confirmLabel:'Go'});
+  if(r?.code)location.hash='#/box/'+encodeURIComponent(r.code.trim());
+};
 
 function setTab(t){document.querySelectorAll('#tabs a').forEach(a=>a.classList.toggle('active',a.dataset.t===t));}
 
@@ -221,12 +381,13 @@ async function doSearch(term){
   const res=$('#res'); if(!res)return;
   if(!term){res.innerHTML='';return;}
   res.innerHTML='<div class="empty">Searching…</div>';
+  const t=term.replace(/[,()%]/g,' ').trim();
   const {data,error}=await client().from('item_search')
     .select('*')
-    .or(`style.ilike.%${term}%,sku.ilike.%${term}%,color.ilike.%${term}%`)
+    .or(`style.ilike.%${t}%,sku.ilike.%${t}%,color.ilike.%${t}%,brand.ilike.%${t}%,department_code.ilike.%${t}%`)
     .order('box_code').limit(200);
   if(error){res.innerHTML=`<div class="empty">⚠ ${esc(error.message)}</div>`;return;}
-  if(!data.length){res.innerHTML='<div class="empty"><div class="big">∅</div>No items match "'+esc(term)+'".</div>';return;}
+  if(!data.length){res.innerHTML='<div class="empty"><div class="big">∅</div>No items match “'+esc(term)+'”.</div>';return;}
   // group by box
   const byBox={};
   data.forEach(r=>{(byBox[r.box_code] ||= {zone:r.zone,status:r.status,rows:[]}).rows.push(r);});
@@ -239,10 +400,10 @@ async function doSearch(term){
       </div>
       ${b.rows.map(r=>`
         <div class="resrow">
-          <div class="thumb" ${r.photo_url?`style="background-image:url(${esc(r.photo_url)})"`:''}}>${r.photo_url?'':'👕'}</div>
+          <div class="thumb" ${r.photo_url?`style="background-image:url(${esc(r.photo_url)})"`:''}>${r.photo_url?'':'👕'}</div>
           <div>
-            <div style="font-weight:600">${esc(r.style)} ${r.color?'· '+esc(r.color):''}</div>
-            <div class="sub mono">${r.sku?esc(r.sku)+' · ':''}size ${esc(r.size||'–')}</div>
+            <div style="font-weight:600">${esc(r.style)}${r.color?' · '+esc(r.color):''}</div>
+            <div class="sub mono">${[r.sku,r.brand,r.gender,r.department_code?'Dept '+r.department_code:'',r.size?'size '+r.size:''].filter(Boolean).map(esc).join(' · ')||'—'}</div>
           </div>
           <div class="qty">×${r.qty}</div>
         </div>`).join('')}
@@ -260,52 +421,259 @@ async function viewShipments(){
       <button class="btn acc sm" style="margin-left:auto" id="newShip">+ New shipment</button>
     </div>
     ${data.length?`<div class="card divide">${data.map(s=>`
-      <a class="lcard" href="#/shipment/${s.id}">
-        <div>
+      <div class="lcard" data-href="#/shipment/${s.id}" style="cursor:pointer">
+        <div style="flex:1;min-width:0" onclick="location.hash='#/shipment/${s.id}'">
           <div class="code cond" style="font-size:18px">${esc(s.name)}</div>
           <div class="meta">${s.arrived_on||''} · ${s.boxes?.[0]?.count??0} boxes${s.note?' · '+esc(s.note):''}</div>
-        </div><span class="chev">→</span>
-      </a>`).join('')}</div>`
+        </div>
+        <div style="display:flex;gap:6px;flex:none">
+          <button class="del sm" data-edit-ship="${s.id}" data-name="${esc(s.name)}" data-date="${esc(s.arrived_on||'')}" data-note="${esc(s.note||'')}" title="Edit shipment">✏️</button>
+          <button class="del sm" data-del-ship="${s.id}" data-name="${esc(s.name)}" title="Delete shipment">🗑</button>
+        </div>
+      </div>`).join('')}</div>`
     :'<div class="empty"><div class="big">📦</div>No shipments yet. Create one, then import or add boxes.</div>'}`;
   $('#newShip').onclick=newShipment;
+  // edit handlers
+  app.querySelectorAll('[data-edit-ship]').forEach(btn=>btn.onclick=async e=>{
+    e.stopPropagation();
+    const id=btn.dataset.editShip;
+    const r=await showDialog({title:'Edit shipment',fields:[
+      {id:'name',label:'Shipment name',value:btn.dataset.name,required:true},
+      {id:'arrived_on',label:'Date',type:'date',value:btn.dataset.date},
+      {id:'note',label:'Note',value:btn.dataset.note}
+    ],confirmLabel:'Save'});
+    if(!r)return;
+    const {error}=await client().from('shipments').update({name:r.name,arrived_on:r.arrived_on||null,note:r.note||null}).eq('id',id);
+    if(error)return toast('⚠ '+error.message);
+    toast('Shipment updated'); viewShipments();
+  });
+  // delete handlers
+  app.querySelectorAll('[data-del-ship]').forEach(btn=>btn.onclick=async e=>{
+    e.stopPropagation();
+    const id=btn.dataset.delShip, name=btn.dataset.name;
+    const {data:boxes}=await client().from('boxes').select('id').eq('shipment_id',id);
+    const bc=boxes?.length||0;
+    const ok=await showConfirm({title:`Delete "${name}"?`,message:`This will permanently remove ${bc} box(es) and all items inside them.`,confirmLabel:'Delete shipment'});
+    if(!ok)return;
+    if(bc>0)await client().from('boxes').delete().in('id',boxes.map(b=>b.id));
+    await client().from('shipments').delete().eq('id',id);
+    toast('Shipment deleted'); viewShipments();
+  });
 }
 async function newShipment(){
-  const name=prompt('Shipment name (e.g. "March 2026 — Summer range")'); if(!name)return;
-  const {error}=await client().from('shipments').insert({name});
+  const r=await showDialog({title:'New shipment',fields:[
+    {id:'name',label:'Shipment name',placeholder:'e.g. May 2026 — Summer range',required:true},
+    {id:'arrived_on',label:'Date',placeholder:'YYYY-MM-DD',type:'date'},
+    {id:'note',label:'Note',placeholder:'Optional'}
+  ],confirmLabel:'Create'});
+  if(!r)return;
+  const {error}=await client().from('shipments').insert({name:r.name,arrived_on:r.arrived_on||null,note:r.note||null});
   if(error)return toast('⚠ '+error.message);
   toast('Shipment created'); viewShipments();
 }
+let lastAssignBox='';
 async function viewShipment(id){
   loading();
-  const {data:ship}=await client().from('shipments').select('*').eq('id',id).single();
-  const {data:boxes,error}=await client().from('boxes').select('*, items(count)').eq('shipment_id',id).order('code');
+  const [{data:ship},{data:boxes,error},{data:depts},{data:unboxed}] = await Promise.all([
+    client().from('shipments').select('*').eq('id',id).single(),
+    client().from('boxes').select('*, items(count)').eq('shipment_id',id).order('code'),
+    client().from('departments').select('*').order('code'),
+    client().from('items').select('id,sku,style,gender,qty').eq('shipment_id',id).is('box_id',null).order('sku')
+  ]);
   if(error)return errView(error);
+  // count items per dept for this shipment
+  const boxIds=(boxes||[]).map(b=>b.id);
+  const deptCounts={};
+  if(boxIds.length){
+    const {data:id2}=await client().from('items').select('department_code').in('box_id',boxIds);
+    (id2||[]).forEach(r=>{if(r.department_code)deptCounts[r.department_code]=(deptCounts[r.department_code]||0)+1;});
+  }
+  // group boxes by department_code
+  const byDept={};
+  const unassigned=[];
+  (boxes||[]).forEach(b=>{
+    if(b.department_code){(byDept[b.department_code]=byDept[b.department_code]||[]).push(b);}
+    else{unassigned.push(b);}
+  });
+  function deptGroupHtml(header, headerClass, groupBoxes, addDeptCode){
+    return `<div class="dept-group">
+      <div class="dept-group-hd ${headerClass}">${header}
+        <button class="hdbtn acc" data-add-box-dept="${esc(addDeptCode)}">+ Add box</button>
+      </div>
+      ${groupBoxes.length
+        ?`<div class="divide">${groupBoxes.map(b=>boxRowHtml(b)).join('')}</div>`
+        :`<div class="dept-empty">No boxes yet in this department.</div>`}
+    </div>`;
+  }
+  const deptGroupsHtml=(depts||[]).map(d=>deptGroupHtml(
+    `<span class="dg-code">${esc(d.code)}</span>
+     <span class="dg-name">${esc(d.name)}</span>
+     <span class="dcnt">${deptCounts[d.code]||0} items</span>
+     <button class="hdbtn" data-edit-dept="${d.id}" data-code="${esc(d.code)}" data-name="${esc(d.name)}" title="Edit">✏️</button>
+     <button class="hdbtn" data-del-dept="${d.id}" data-code="${esc(d.code)}" title="Delete">🗑</button>`,
+    '', byDept[d.code]||[], d.code
+  )).join('');
+  const unassignedHtml=deptGroupHtml(
+    `<span class="dg-code" style="font-size:12px;letter-spacing:.08em">UNASSIGNED</span><span style="flex:1"></span>`,
+    'style="background:var(--muted)"', unassigned, ''
+  );
+  const unboxedHtml=(unboxed&&unboxed.length)?`
+    <div class="sec-label">To be boxed (${unboxed.length})</div>
+    <div class="card divide" style="max-height:440px;overflow:auto;margin-bottom:8px">
+      ${unboxed.map(it=>`
+        <div class="lcard" style="cursor:default;background:var(--panel)">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600">${esc(it.style)}</div>
+            <div class="sub mono">${esc(it.sku||'')}${it.gender?' · '+esc(it.gender):''} · ×${it.qty}</div>
+          </div>
+          <button class="btn acc sm" data-assign="${it.id}" data-label="${esc(it.style)}" style="flex:none">→ Box</button>
+        </div>`).join('')}
+    </div>`:'';
   app.innerHTML=`
     <a class="sub" href="#/shipments">← Shipments</a>
-    <div style="display:flex;align-items:center;gap:12px;margin:6px 0 14px">
-      <h1 class="page" style="margin:0">${esc(ship?.name||'Shipment')}</h1>
-      <button class="btn acc sm" style="margin-left:auto" id="addBox">+ Add box</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 16px">
+      <h1 class="page" style="margin:0;flex:1">${esc(ship?.name||'Shipment')}</h1>
+      <button class="btn ghost sm" id="editShip">✏️ Edit</button>
+      <button class="btn danger sm" id="delShip">🗑 Delete</button>
     </div>
-    ${boxes.length?`<div class="card divide">${boxes.map(b=>boxRowHtml(b)).join('')}</div>`
-      :'<div class="empty"><div class="big">📦</div>No boxes in this shipment yet.</div>'}`;
-  $('#addBox').onclick=()=>addBox(id);
+    ${unboxedHtml}
+    <div class="sec-label">Departments &amp; Boxes</div>
+    ${deptGroupsHtml||''}
+    ${unassignedHtml}
+    <button class="btn ghost sm" id="addDept" style="margin-top:12px">+ Add department</button>`;
+
+  /* ---- shipment ---- */
+  $('#editShip').onclick=async()=>{
+    const r=await showDialog({title:'Edit shipment',fields:[
+      {id:'name',label:'Shipment name',value:ship?.name||'',required:true},
+      {id:'arrived_on',label:'Date',type:'date',value:ship?.arrived_on||''},
+      {id:'note',label:'Note',value:ship?.note||''}
+    ],confirmLabel:'Save'});
+    if(!r)return;
+    const {error}=await client().from('shipments').update({name:r.name,arrived_on:r.arrived_on||null,note:r.note||null}).eq('id',id);
+    if(error)return toast('⚠ '+error.message); toast('Updated'); viewShipment(id);
+  };
+  $('#delShip').onclick=async()=>{
+    const bc=(boxes||[]).length;
+    const ok=await showConfirm({title:`Delete "${ship?.name}"?`,message:`This will permanently remove ${bc} box(es) and all items inside them.`,confirmLabel:'Delete shipment'});
+    if(!ok)return;
+    if(bc>0)await client().from('boxes').delete().in('id',(boxes||[]).map(b=>b.id));
+    await client().from('shipments').delete().eq('id',id);
+    toast('Shipment deleted'); location.hash='#/shipments';
+  };
+
+  /* ---- departments ---- */
+  $('#addDept').onclick=async()=>{
+    const r=await showDialog({title:'Add department',fields:[
+      {id:'code',label:'Department code',placeholder:'e.g. D12',required:true,mono:true},
+      {id:'name',label:'Department name',placeholder:'e.g. Menswear',required:true}
+    ],confirmLabel:'Add'});
+    if(!r)return;
+    const code=r.code.toUpperCase();
+    const {error}=await client().from('departments').insert({code,name:r.name});
+    if(error)return toast('⚠ '+(error.code==='23505'?`Code ${code} already exists`:error.message));
+    toast('Department added'); viewShipment(id);
+  };
+  app.querySelectorAll('[data-edit-dept]').forEach(btn=>btn.onclick=async()=>{
+    const did=btn.dataset.editDept;
+    const r=await showDialog({title:'Edit department',fields:[
+      {id:'code',label:'Department code',value:btn.dataset.code,required:true,mono:true},
+      {id:'name',label:'Department name',value:btn.dataset.name,required:true}
+    ],confirmLabel:'Save'});
+    if(!r)return;
+    const {error}=await client().from('departments').update({code:r.code.toUpperCase(),name:r.name}).eq('id',did);
+    if(error)return toast('⚠ '+error.message); toast('Updated'); viewShipment(id);
+  });
+  app.querySelectorAll('[data-del-dept]').forEach(btn=>btn.onclick=async()=>{
+    const ok=await showConfirm({title:`Delete department ${btn.dataset.code}?`,message:'Boxes in this department will move to Unassigned.',confirmLabel:'Delete department'});
+    if(!ok)return;
+    const {error}=await client().from('departments').delete().eq('id',btn.dataset.delDept);
+    if(error)return toast('⚠ '+error.message); toast('Department deleted'); viewShipment(id);
+  });
+
+  /* ---- add box per dept ---- */
+  app.querySelectorAll('[data-add-box-dept]').forEach(btn=>btn.onclick=()=>addBox(id,btn.dataset.addBoxDept||null));
+
+  /* ---- assign unboxed items to a box ---- */
+  app.querySelectorAll('[data-assign]').forEach(btn=>btn.onclick=async()=>{
+    const itemId=btn.dataset.assign;
+    const opts=[{value:'',label:'— choose box —'},...(boxes||[]).map(b=>({value:b.code,label:b.code+(b.zone?' · '+b.zone:'')})),{value:'__new__',label:'➕ New box…'}];
+    const r=await showDialog({title:`Assign "${btn.dataset.label}"`,fields:[
+      {id:'box',label:'Box',type:'select',value:lastAssignBox,options:opts}
+    ],confirmLabel:'Assign'});
+    if(!r)return;
+    let code=r.box;
+    if(!code){toast('Pick a box');return;}
+    let boxId;
+    if(code==='__new__'){
+      const r2=await showDialog({title:'New box',fields:[
+        {id:'code',label:'Box code',placeholder:'e.g. B-0001',required:true,mono:true},
+        {id:'zone',label:'Location / zone'},
+        {id:'dept',label:'Department code',mono:true}
+      ],confirmLabel:'Create & assign'});
+      if(!r2)return;
+      code=r2.code.trim();
+      const {data:nb,error}=await client().from('boxes').insert({code,zone:r2.zone||null,shipment_id:id,department_code:r2.dept?r2.dept.toUpperCase():null}).select('id').single();
+      if(error)return toast('⚠ '+error.message); boxId=nb.id;
+    }else{
+      const {data:fb}=await client().from('boxes').select('id').eq('code',code).maybeSingle();
+      if(!fb){toast('Box '+code+' not found');return;} boxId=fb.id;
+    }
+    const {error}=await client().from('items').update({box_id:boxId}).eq('id',itemId);
+    if(error)return toast('⚠ '+error.message);
+    lastAssignBox=code; toast('Assigned to '+code); viewShipment(id);
+  });
+
+  /* ---- box edit/delete ---- */
+  app.querySelectorAll('[data-edit-box]').forEach(btn=>btn.onclick=async e=>{
+    e.stopPropagation();
+    const bid=btn.dataset.editBox;
+    const r=await showDialog({title:'Edit box',fields:[
+      {id:'code',label:'Box code',value:btn.dataset.code,required:true,mono:true},
+      {id:'zone',label:'Location / zone',value:btn.dataset.zone,placeholder:'e.g. Aisle 3 / Shelf B'},
+      {id:'status',label:'Status',type:'select',value:btn.dataset.status,options:[
+        {value:'stored',label:'Stored'},{value:'opened',label:'Opened'},{value:'empty',label:'Empty'}]},
+      {id:'dept',label:'Department code',value:btn.dataset.dept,hint:'Leave blank to move to Unassigned',mono:true}
+    ],confirmLabel:'Save'});
+    if(!r)return;
+    const {error}=await client().from('boxes').update({code:r.code.trim(),zone:r.zone||null,status:r.status||'stored',department_code:r.dept?r.dept.toUpperCase():null}).eq('id',bid);
+    if(error)return toast('⚠ '+error.message); toast('Box updated'); viewShipment(id);
+  });
+  app.querySelectorAll('[data-del-box]').forEach(btn=>btn.onclick=async e=>{
+    e.stopPropagation();
+    const ok=await showConfirm({title:`Delete box ${btn.dataset.code}?`,message:'This will permanently remove the box and all its items.',confirmLabel:'Delete box'});
+    if(!ok)return;
+    const {error}=await client().from('boxes').delete().eq('id',btn.dataset.delBox);
+    if(error)return toast('⚠ '+error.message); toast('Box deleted'); viewShipment(id);
+  });
 }
 function boxRowHtml(b){
-  return `<a class="lcard" href="#/box/${encodeURIComponent(b.code)}">
-    <div>
+  return `<div class="lcard" style="cursor:default;background:var(--panel)">
+    <div style="flex:1;min-width:0;cursor:pointer" onclick="location.hash='#/box/${encodeURIComponent(b.code)}'">
       <div class="code">${esc(b.code)}</div>
       <div class="meta">${b.zone?'📍 '+esc(b.zone)+' · ':''}${b.items?.[0]?.count??0} item lines</div>
     </div>
-    <span class="tag ${b.status}">${esc(b.status)}</span>
-    <span class="chev">→</span></a>`;
+    <span class="tag ${b.status}" style="flex:none">${esc(b.status)}</span>
+    <div style="display:flex;gap:6px;flex:none">
+      <button class="del sm" data-edit-box="${b.id}" data-code="${esc(b.code)}" data-zone="${esc(b.zone||'')}" data-status="${esc(b.status)}" data-dept="${esc(b.department_code||'')}" title="Edit">✏️</button>
+      <button class="del sm" data-del-box="${b.id}" data-code="${esc(b.code)}" title="Delete">🗑</button>
+    </div>
+  </div>`;
 }
-async function addBox(shipmentId){
-  const code=prompt('New box code (e.g. B-0001)'); if(!code)return;
-  const zone=prompt('Location / zone (optional, e.g. "Aisle 3 / Shelf B")')||null;
-  const {error}=await client().from('boxes').insert({code:code.trim(),zone,shipment_id:shipmentId});
+async function addBox(shipmentId, deptCode=null){
+  const r=await showDialog({title:'Add box',fields:[
+    {id:'code',label:'Box code',placeholder:'e.g. B-0001',required:true,mono:true},
+    {id:'zone',label:'Location / zone',placeholder:'e.g. Aisle 3 / Shelf B'}
+  ],confirmLabel:'Add box'});
+  if(!r)return;
+  const dc=deptCode?deptCode.trim().toUpperCase():null;
+  const {error}=await client().from('boxes').insert({code:r.code.trim(),zone:r.zone||null,shipment_id:shipmentId,department_code:dc});
   if(error)return toast('⚠ '+error.message);
-  location.hash='#/box/'+encodeURIComponent(code.trim());
+  location.hash='#/box/'+encodeURIComponent(r.code.trim());
 }
+
+
+
 
 /* ===================================================== BOX DETAIL */
 async function viewBox(code){
@@ -320,7 +688,8 @@ async function viewBox(code){
   }
   const {data:items}=await client().from('items').select('*').eq('box_id',box.id).order('style');
   const total=(items||[]).reduce((a,i)=>a+(i.qty||0),0);
-  const qr=await QRCode.toDataURL(baseUrl()+'?box='+encodeURIComponent(code),{margin:1,width:256});
+  const qrBase=appBase();
+  const qr=qrBase?await QRCode.toDataURL(qrBase+'?box='+encodeURIComponent(code),{margin:1,width:256}):null;
 
   app.innerHTML=`
     <a class="sub" href="${box.shipment_id?'#/shipment/'+box.shipment_id:'#/shipments'}">← ${esc(box.shipments?.name||'Shipments')}</a>
@@ -333,14 +702,15 @@ async function viewBox(code){
             <button class="btn ghost sm" id="editZone" style="margin-left:8px">edit</button></div>
           <div class="sub mono">${total} pieces · ${(items||[]).length} lines</div>
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn acc sm" id="addItem">+ Add item</button>
+            <button class="btn acc sm" id="addItem">+ Add items</button>
             <button class="btn ghost sm" id="printLabel">🏷 Print label</button>
             <button class="btn ghost sm" id="statusBtn">Set status</button>
+            <button class="btn danger sm" id="delBox">Delete box</button>
           </div>
         </div>
         <div class="qrwrap noprint">
-          <img src="${qr}" alt="QR">
-          <div class="sub mono" style="margin-top:6px">scan to open</div>
+          ${qr?`<img src="${qr}" alt="QR"><div class="sub mono" style="margin-top:6px">scan to open</div>`
+            :`<div class="qrhint">⚠ Add your <b>Public app URL</b> in Settings (⚙) to generate scannable QR codes.</div>`}
         </div>
       </div>
     </div>
@@ -350,10 +720,30 @@ async function viewBox(code){
     </div>`;
 
   renderItems(box,items||[]);
-  $('#addItem').onclick=()=>addItem(box);
-  $('#editZone').onclick=async()=>{const z=prompt('Location / zone',box.zone||'');if(z===null)return;await client().from('boxes').update({zone:z}).eq('id',box.id);viewBox(code);};
-  $('#statusBtn').onclick=async()=>{const s=prompt('Status: stored / opened / empty',box.status);if(!s)return;await client().from('boxes').update({status:s.trim()}).eq('id',box.id);viewBox(code);};
+  $('#addItem').onclick=()=>openAddForm(box);
+  $('#editZone').onclick=async()=>{
+    const r=await showDialog({title:'Edit box details',fields:[
+      {id:'zone',label:'Location / zone',value:box.zone||'',placeholder:'e.g. Aisle 3 / Shelf B'}
+    ],confirmLabel:'Save'});
+    if(!r)return; await client().from('boxes').update({zone:r.zone||null}).eq('id',box.id); viewBox(code);
+  };
+  $('#statusBtn').onclick=async()=>{
+    const r=await showDialog({title:'Set box status',fields:[
+      {id:'status',label:'Status',type:'select',value:box.status,options:[
+        {value:'stored',label:'Stored'},{value:'opened',label:'Opened'},{value:'empty',label:'Empty'}]}
+    ],confirmLabel:'Save'});
+    if(!r)return; await client().from('boxes').update({status:r.status}).eq('id',box.id); viewBox(code);
+  };
   $('#printLabel').onclick=()=>printLabel(box,items||[],qr);
+  $('#delBox').onclick=async()=>{
+    const n=(items||[]).length;
+    const ok=await showConfirm({title:`Delete box ${box.code}?`,message:`This will permanently remove the box and all ${n} item line(s) inside it.`,confirmLabel:'Delete box'});
+    if(!ok)return;
+    const {error}=await client().from('boxes').delete().eq('id',box.id);
+    if(error)return toast('⚠ '+error.message);
+    toast('Box '+box.code+' deleted');
+    location.hash = box.shipment_id ? '#/shipment/'+box.shipment_id : '#/shipments';
+  };
 }
 
 function renderItems(box,items){
@@ -362,16 +752,19 @@ function renderItems(box,items){
   wrap.innerHTML=items.map(i=>`
     <div class="itemrow" data-id="${i.id}">
       <div style="display:flex;gap:12px;align-items:center">
-        <div class="thumb" ${i.photo_url?`style="background-image:url(${esc(i.photo_url)})"`:''}}>${i.photo_url?'':'👕'}</div>
+        <div class="thumb" ${i.photo_url?`style="background-image:url(${esc(i.photo_url)})"`:''}>${i.photo_url?'':'👕'}</div>
         <div>
-          <div style="font-weight:600">${esc(i.style)} ${i.color?'· '+esc(i.color):''}</div>
-          <div class="sub mono">${i.sku?esc(i.sku)+' · ':''}size ${esc(i.size||'–')}</div>
+          <div style="font-weight:600">${esc(i.style)}${i.color?' · '+esc(i.color):''}</div>
+          <div class="sub mono">${[i.sku,i.brand,i.gender,i.department_code?'Dept '+i.department_code:'',i.size?'size '+i.size:''].filter(Boolean).map(esc).join(' · ')||'—'}</div>
         </div>
       </div>
-      <div class="stepper">
-        <button data-d="-1">−</button>
-        <input type="number" value="${i.qty}" data-qty>
-        <button data-d="1">+</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="stepper">
+          <button data-d="-1">−</button>
+          <input type="number" value="${i.qty}" data-qty>
+          <button data-d="1">+</button>
+        </div>
+        <button class="del" data-del title="Remove item">🗑</button>
       </div>
     </div>`).join('');
   wrap.querySelectorAll('.itemrow').forEach(rowEl=>{
@@ -380,17 +773,105 @@ function renderItems(box,items){
     const save=async v=>{const n=Math.max(0,parseInt(v||0,10));input.value=n;await client().from('items').update({qty:n}).eq('id',id);toast('Saved · '+n);};
     rowEl.querySelectorAll('button[data-d]').forEach(b=>b.onclick=()=>save(parseInt(input.value||0,10)+(+b.dataset.d)));
     input.onchange=()=>save(input.value);
+    rowEl.querySelector('[data-del]').onclick=async()=>{
+      const it=items.find(x=>x.id===id);
+      const ok=await showConfirm({title:'Remove item?',message:`Remove "${it?it.style:'this item'}" from box ${box.code}?`,confirmLabel:'Remove',danger:true});
+      if(!ok)return;
+      const {error}=await client().from('items').delete().eq('id',id);
+      if(error)return toast('⚠ '+error.message);
+      toast('Item removed'); viewBox(box.code);
+    };
   });
 }
-async function addItem(box){
-  const style=prompt('Style / item name (e.g. Men\'s Oxford Shirt)'); if(!style)return;
-  const sku=prompt('SKU (optional)')||null;
-  const color=prompt('Colour (optional)')||null;
-  const size=prompt('Size (optional, e.g. M or 42)')||null;
-  const qty=parseInt(prompt('Quantity','1')||'0',10)||0;
-  const {error}=await client().from('items').insert({box_id:box.id,style,sku,color,size,qty});
-  if(error)return toast('⚠ '+error.message);
-  viewBox(box.code);
+/* manual repeat-entry form for one box */
+const GENDERS=['','Men','Women','Unisex','Boys','Girls','Kids','Baby'];
+function openAddForm(box){
+  let added=0;
+  const overlay=document.createElement('div');
+  overlay.className='modal';
+  overlay.innerHTML=`
+    <div class="sheet">
+      <div class="shd"><span>Add items to</span><span class="code">${esc(box.code)}</span>
+        <span class="count" id="cnt">0 added</span></div>
+      <div class="sbody">
+        <div class="fgrid">
+          <div class="full"><label class="f">Item name *</label><input class="t" id="f_name" placeholder="e.g. Oxford Shirt"></div>
+          <div><label class="f">Item code</label><input class="t mono" id="f_code" placeholder="e.g. SK-204"></div>
+          <div><label class="f">Department code</label><input class="t mono" id="f_dept" placeholder="e.g. D12" list="deptlist">
+            <div class="sticky-note">kept for next item ↺</div></div>
+          <div><label class="f">Brand</label><input class="t" id="f_brand" placeholder="e.g. Zara" list="brandlist">
+            <div class="sticky-note">kept for next item ↺</div></div>
+          <div><label class="f">Gender</label><input class="t" id="f_gender" placeholder="e.g. Men" list="genderlist">
+            <div class="sticky-note">kept for next item ↺</div></div>
+          <div><label class="f">Colour</label><input class="t" id="f_color" placeholder="e.g. Navy"></div>
+          <div><label class="f">Size</label><input class="t" id="f_size" placeholder="e.g. M / 42"></div>
+          <div class="full"><label class="f">Quantity</label><input class="t mono" id="f_qty" type="number" value="1" min="0"></div>
+        </div>
+        <datalist id="brandlist"></datalist>
+        <datalist id="genderlist">${GENDERS.filter(Boolean).map(g=>`<option value="${g}">`).join('')}</datalist>
+        <datalist id="deptlist"></datalist>
+        <div class="recent" id="recent" style="display:none"></div>
+      </div>
+      <div class="sfoot">
+        <button class="btn ghost" id="f_done">Done</button>
+        <button class="btn acc" id="f_add">Add &amp; next</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('open')));
+  const g=id=>overlay.querySelector(id);
+  // load existing brands + departments for autocomplete
+  client().from('items').select('brand').not('brand','is',null).limit(500).then(({data})=>{
+    if(!data)return; const uniq=[...new Set(data.map(d=>d.brand).filter(Boolean))];
+    g('#brandlist').innerHTML=uniq.map(b=>`<option value="${esc(b)}">`).join('');
+  });
+  client().from('departments').select('code,name').order('code').then(({data})=>{
+    if(!data)return;
+    g('#deptlist').innerHTML=data.map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('');
+  });
+  g('#f_name').focus();
+  const recent=[];
+  const close=()=>{overlay.classList.remove('open');setTimeout(()=>{overlay.remove();viewBox(box.code);},200);};
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+  g('#f_done').onclick=close;
+
+  async function save(){
+    const style=g('#f_name').value.trim();
+    if(!style){toast('Item name is required');g('#f_name').focus();return;}
+    const sku=g('#f_code').value.trim()||null;
+    // proactive duplicate check — catch it before the DB does
+    if(sku){
+      const {data:clash}=await client().from('item_search').select('box_code').eq('sku',sku).maybeSingle();
+      if(clash){
+        toast(`⚠ Item code ${sku} already exists in box ${clash.box_code}`);
+        g('#f_code').focus(); return;
+      }
+    }
+    const rec={
+      box_id:box.id, style, sku,
+      department_code:g('#f_dept').value.trim()||null,
+      brand:g('#f_brand').value.trim()||null,
+      gender:g('#f_gender').value||null,
+      color:g('#f_color').value.trim()||null,
+      size:g('#f_size').value.trim()||null,
+      qty:Math.max(0,parseInt(g('#f_qty').value||'1',10))
+    };
+    const btn=g('#f_add'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+    const {error}=await client().from('items').insert(rec);
+    btn.disabled=false; btn.textContent='Add & next';
+    if(error){toast('⚠ '+error.message);return;}
+    added++; g('#cnt').textContent=added+' added';
+    recent.unshift(rec);
+    const rc=g('#recent'); rc.style.display='block';
+    rc.innerHTML='<div class="sub" style="font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.05em;margin-bottom:4px">Added this session</div>'+
+      recent.slice(0,20).map(r=>`<div class="r"><span>${esc(r.style)}${r.color?' · '+esc(r.color):''}</span><span class="mono" style="margin-left:auto">${r.sku?esc(r.sku):''} ×${r.qty}</span></div>`).join('');
+    // clear per-item fields; keep brand / gender / department sticky
+    ['#f_name','#f_code','#f_color','#f_size'].forEach(s=>g(s).value='');
+    g('#f_qty').value='1';
+    g('#f_name').focus();
+  }
+  g('#f_add').onclick=save;
+  overlay.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName!=='SELECT'){e.preventDefault();save();}});
 }
 
 /* ---------- print label ---------- */
@@ -412,7 +893,7 @@ function printLabel(box,items,qr){
       <div class="hd">
         <div><div class="c">${esc(box.code)}</div>
         <div class="z">📍 ${esc(box.zone||'—')}</div></div>
-        <img src="${qr}">
+        ${qr?`<img src="${qr}">`:''}
       </div>
       <div class="mono" style="font-size:12px;border-top:1px solid #000;padding-top:8px">CONTENTS (top lines)</div>
       <ul>${top.map(i=>`<li>${esc(i.style)} ${i.color?'· '+esc(i.color):''} ${i.size?'('+esc(i.size)+')':''} — ${i.qty}</li>`).join('')||'<li>empty</li>'}</ul>
@@ -423,98 +904,146 @@ function printLabel(box,items,qr){
 }
 
 /* ===================================================== CSV IMPORT */
+function normGender(s){
+  s=(s||'').toUpperCase();
+  if(s.includes('BOY')) return 'Boys';
+  if(s.includes('GIRL')) return 'Girls';
+  if(s.includes('BABY')||s.includes('INFANT')||s.includes('NEWBORN')) return 'Baby';
+  if(s.includes('KID')||s.includes('CHILD')||s.includes('JUNIOR')) return 'Kids';
+  if(s.includes('LAD')||s.includes('WOMEN')||s.includes('WOMAN')||s.includes('FEMALE')) return 'Women';
+  if(s.includes('MEN')||s.includes('MALE')||s.includes('GENT')) return 'Men';
+  if(s.includes('UNISEX')) return 'Unisex';
+  return s?s.charAt(0)+s.slice(1).toLowerCase():null;
+}
 function viewImport(){
   app.innerHTML=`
-    <h1 class="page">Import a packing list</h1>
+    <h1 class="page">Import GRN</h1>
     <div class="card pad" style="margin-bottom:14px">
-      <p class="sub" style="margin-top:0">Upload a CSV. Required columns: <b class="mono">box_code, style, qty</b>.
-      Optional: <b class="mono">zone, sku, color, size</b>. Rows with the same <b class="mono">box_code</b> are grouped into one box.</p>
-      <div class="row" style="margin-bottom:12px">
-        <div><label class="f">Add all boxes to shipment</label>
-          <select class="t" id="shipSel"><option value="">— none —</option></select></div>
-        <div style="flex:0 0 auto;align-self:flex-end"><button class="btn ghost sm" id="dlTpl">Download template</button></div>
+      <p class="sub" style="margin-top:0">Upload a Goods Receive Note (Excel <b class="mono">.xlsx</b> or CSV). The app reads <b>item code</b>, <b>description</b>, <b>category</b> and <b>quantity</b> — wherever those columns are — and adds every line to the chosen shipment as <b>unboxed</b> items. You then assign each to a box from the shipment page.</p>
+      <div style="margin-bottom:12px">
+        <label class="f">Add items to shipment *</label>
+        <div style="display:flex;gap:8px">
+          <select class="t" id="shipSel" style="flex:1"><option value="">— choose a shipment —</option></select>
+          <button class="btn ghost sm" id="newShipBtn" style="flex:none">+ New</button>
+        </div>
       </div>
       <div class="drop" id="drop">
         <div style="font-size:32px">⬆</div>
-        <div style="font-weight:600;margin-top:6px">Drop CSV here or tap to choose</div>
+        <div style="font-weight:600;margin-top:6px">Drop GRN file here or tap to choose</div>
         <div class="sub" id="fname"></div>
       </div>
-      <input type="file" id="file" accept=".csv,text/csv" style="display:none">
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
     </div>
     <div id="importBody"></div>`;
-  // populate shipments
-  client().from('shipments').select('id,name').order('created_at',{ascending:false}).then(({data})=>{
-    if(data) $('#shipSel').insertAdjacentHTML('beforeend',data.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join(''));
-  });
+  loadShipSel();
+  $('#newShipBtn').onclick=async()=>{
+    const r=await showDialog({title:'New shipment',fields:[
+      {id:'name',label:'Shipment name',placeholder:'e.g. EX/1001/26 — Mar 2026',required:true},
+      {id:'arrived_on',label:'Date',type:'date'}
+    ],confirmLabel:'Create'});
+    if(!r)return;
+    const {data,error}=await client().from('shipments').insert({name:r.name,arrived_on:r.arrived_on||null}).select('id').single();
+    if(error)return toast('⚠ '+error.message);
+    await loadShipSel(); $('#shipSel').value=data.id; toast('Shipment created');
+  };
   const file=$('#file'), drop=$('#drop');
   drop.onclick=()=>file.click();
   drop.ondragover=e=>{e.preventDefault();drop.style.borderColor='var(--accent)';};
   drop.ondragleave=()=>drop.style.borderColor='';
   drop.ondrop=e=>{e.preventDefault();drop.style.borderColor='';if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);};
   file.onchange=()=>{if(file.files[0])handleFile(file.files[0]);};
-  $('#dlTpl').onclick=()=>{
-    const csv='box_code,zone,style,sku,color,size,qty\nB-0001,Aisle 3 / Shelf B,Men\'s Oxford Shirt,SK-204,Blue,M,12\nB-0001,Aisle 3 / Shelf B,Men\'s Oxford Shirt,SK-204,Blue,L,8\nB-0002,Aisle 1 / Shelf A,Cotton Tee,SK-310,White,S,20\n';
-    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='stockbox-template.csv';a.click();
-  };
+}
+async function loadShipSel(){
+  const {data}=await client().from('shipments').select('id,name').order('created_at',{ascending:false});
+  const sel=$('#shipSel'); if(!sel)return;
+  sel.innerHTML='<option value="">— choose a shipment —</option>'+(data||[]).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
 }
 let parsedRows=null;
-function handleFile(f){
-  $('#fname').textContent=f.name;
-  Papa.parse(f,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().toLowerCase(),complete:res=>{
-    const rows=res.data.map(r=>({
-      box_code:(r.box_code||r.box||'').trim(), zone:(r.zone||r.location||'').trim(),
-      style:(r.style||r.item||r.name||'').trim(), sku:(r.sku||'').trim(),
-      color:(r.color||r.colour||'').trim(), size:(r.size||'').trim(),
-      qty:parseInt(r.qty||r.quantity||r.count||0,10)||0
-    })).filter(r=>r.box_code&&r.style);
+async function handleFile(f){
+  $('#fname').textContent=f.name+' — reading…';
+  try{
+    const buf=await f.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const grid=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:''});
+    // find the header row (contains ITEM + a description col + QTY)
+    let hi=-1;
+    for(let i=0;i<Math.min(grid.length,40);i++){
+      const cells=grid[i].map(c=>String(c).trim().toLowerCase());
+      const hasItem=cells.some(c=>c==='item'||c==='item code'||(c.includes('item')&&!c.includes('descr')));
+      const hasDesc=cells.some(c=>c.includes('descr')||c==='description'||c==='name');
+      const hasQty=cells.some(c=>c==='qty'||c.includes('quantity'));
+      if(hasItem&&hasDesc&&hasQty){hi=i;break;}
+    }
+    if(hi<0)throw new Error('Could not find a header row with ITEM / DESCRIPTION / QTY columns.');
+    const H=grid[hi].map(c=>String(c).trim().toLowerCase());
+    const find=(preds)=>{for(const p of preds){const i=H.findIndex(h=>p(h));if(i>=0)return i;}return -1;};
+    const itemCol=find([h=>h==='item',h=>h==='item code'||h==='itemcode',h=>h.includes('item')&&h.includes('code'),h=>h==='code',h=>h.includes('item')&&!h.includes('descr')]);
+    const descCol=find([h=>h==='description',h=>h.startsWith('descript'),h=>h==='item name'||h==='name',h=>h.includes('descr')&&!h.includes('cat')]);
+    const catCol =find([h=>h.includes('cat')]);
+    const qtyCol =find([h=>h==='qty',h=>h.includes('quantity')]);
+    const rows=[];
+    for(let i=hi+1;i<grid.length;i++){
+      const r=grid[i];
+      const sku=itemCol>=0?String(r[itemCol]??'').trim():'';
+      const style=descCol>=0?String(r[descCol]??'').trim():'';
+      if(!sku&&!style)continue;
+      if(!sku)continue;
+      const gender=catCol>=0?normGender(String(r[catCol]??'').trim()):null;
+      const q=qtyCol>=0?Math.round(parseFloat(r[qtyCol])):NaN;
+      rows.push({sku,style:style||'(no description)',gender,qty:(isNaN(q)||q<=0)?1:q});
+    }
     parsedRows=rows;
-    const boxes=new Set(rows.map(r=>r.box_code));
     const pcs=rows.reduce((a,r)=>a+r.qty,0);
+    $('#fname').textContent=f.name;
+    if(!rows.length){$('#importBody').innerHTML='<div class="card pad sub">No item rows found below the header.</div>';return;}
     $('#importBody').innerHTML=`
       <div class="card pad">
         <div class="row" style="text-align:center">
-          <div><div class="cond" style="font-size:28px;font-weight:700">${boxes.size}</div><div class="sub">boxes</div></div>
           <div><div class="cond" style="font-size:28px;font-weight:700">${rows.length}</div><div class="sub">item lines</div></div>
           <div><div class="cond" style="font-size:28px;font-weight:700">${pcs}</div><div class="sub">pieces</div></div>
         </div>
-        <div style="overflow:auto;margin:14px 0;max-height:280px">
-          <table class="prev"><thead><tr><th>box</th><th>zone</th><th>style</th><th>sku</th><th>color</th><th>size</th><th>qty</th></tr></thead>
-          <tbody>${rows.slice(0,12).map(r=>`<tr><td class="mono">${esc(r.box_code)}</td><td>${esc(r.zone)}</td><td>${esc(r.style)}</td><td class="mono">${esc(r.sku)}</td><td>${esc(r.color)}</td><td>${esc(r.size)}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
-          ${rows.length>12?`<div class="sub" style="padding:8px">…and ${rows.length-12} more rows</div>`:''}
+        <div style="overflow:auto;margin:14px 0;max-height:300px">
+          <table class="prev"><thead><tr><th>item code</th><th>description</th><th>category</th><th>qty</th></tr></thead>
+          <tbody>${rows.slice(0,15).map(r=>`<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.style)}</td><td>${esc(r.gender||'')}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
+          ${rows.length>15?`<div class="sub" style="padding:8px">…and ${rows.length-15} more rows</div>`:''}
         </div>
         <div class="bar" id="bar" style="display:none;margin-bottom:10px"><i></i></div>
-        <button class="btn acc" id="runImport" style="width:100%">Import ${rows.length} lines into ${boxes.size} boxes</button>
+        <button class="btn acc" id="runImport" style="width:100%">Add ${rows.length} items to shipment</button>
       </div>`;
     $('#runImport').onclick=runImport;
-  }});
+  }catch(e){
+    $('#fname').textContent=f.name;
+    $('#importBody').innerHTML=`<div class="card pad" style="color:var(--bad)">⚠ ${esc(e.message||e)}</div>`;
+  }
 }
 async function runImport(){
   if(!parsedRows||!parsedRows.length)return;
+  const shipId=$('#shipSel').value;
+  if(!shipId){toast('Choose a shipment first');$('#shipSel').focus();return;}
   const btn=$('#runImport'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Importing…';
   const bar=$('#bar'); bar.style.display='block'; const fill=bar.querySelector('i');
-  const shipId=$('#shipSel').value||null;
   try{
-    // 1) unique boxes → ensure they exist, map code→id
-    const codes=[...new Set(parsedRows.map(r=>r.box_code))];
-    const zoneByCode={}; parsedRows.forEach(r=>{if(r.zone&&!zoneByCode[r.box_code])zoneByCode[r.box_code]=r.zone;});
-    const {data:existing}=await client().from('boxes').select('id,code').in('code',codes);
-    const map={}; (existing||[]).forEach(b=>map[b.code]=b.id);
-    const toCreate=codes.filter(c=>!map[c]).map(c=>({code:c,zone:zoneByCode[c]||null,shipment_id:shipId}));
-    for(let i=0;i<toCreate.length;i+=500){
-      const {data,error}=await client().from('boxes').insert(toCreate.slice(i,i+500)).select('id,code');
-      if(error)throw error; data.forEach(b=>map[b.code]=b.id);
+    // skip SKUs already in the system
+    const skus=parsedRows.map(r=>r.sku).filter(Boolean);
+    const existing=new Set();
+    for(let i=0;i<skus.length;i+=300){
+      const {data:ex}=await client().from('items').select('sku').in('sku',skus.slice(i,i+300));
+      (ex||[]).forEach(r=>existing.add(r.sku));
     }
-    // 2) items in chunks
-    const items=parsedRows.map(r=>({box_id:map[r.box_code],style:r.style,sku:r.sku||null,color:r.color||null,size:r.size||null,qty:r.qty}));
+    const all=parsedRows.map(r=>({shipment_id:shipId,box_id:null,sku:r.sku,style:r.style,gender:r.gender||null,qty:r.qty}));
+    const items=all.filter(r=>!existing.has(r.sku));
+    const skipped=all.length-items.length;
     const chunk=500;
     for(let i=0;i<items.length;i+=chunk){
       const {error}=await client().from('items').insert(items.slice(i,i+chunk));
       if(error)throw error;
-      fill.style.width=Math.round((i+chunk)/items.length*100)+'%';
+      fill.style.width=Math.round((i+chunk)/Math.max(items.length,1)*100)+'%';
     }
     fill.style.width='100%';
-    toast('✓ Imported '+items.length+' lines into '+codes.length+' boxes');
-    btn.innerHTML='✓ Done — import another?'; btn.disabled=false; parsedRows=null;
+    toast(`✓ Added ${items.length} items`+(skipped?` · ${skipped} already in system, skipped`:''));
+    btn.innerHTML='✓ Done — open the shipment to box them';
+    parsedRows=null;
   }catch(e){ toast('⚠ '+(e.message||e)); btn.disabled=false; btn.textContent='Retry import'; }
 }
 
@@ -528,14 +1057,17 @@ function viewSettings(forced){
         <input class="t mono" id="su" placeholder="https://xxxx.supabase.co" value="${esc(CFG.url)}"></div>
       <div style="margin-bottom:16px"><label class="f">Supabase anon key</label>
         <input class="t mono" id="sk" placeholder="eyJhbGci…" value="${esc(CFG.key)}"></div>
+      <div style="margin-bottom:16px"><label class="f">Public app URL <span style="text-transform:none;font-weight:500">— for QR codes</span></label>
+        <input class="t mono" id="pu" placeholder="https://ovs-inventory-xxxx.vercel.app" value="${esc(CFG.pubUrl)}">
+        <div class="sticky-note">Paste your deployed address here so printed QR codes always open the live app. Leave blank to use the current address.</div></div>
       <button class="btn acc" id="saveCfg">Save & connect</button>
       ${!forced?'<button class="btn ghost" id="resetCfg" style="margin-left:8px">Disconnect</button>':''}
-      <p class="sub" style="margin-bottom:0">Find both under Supabase → Project Settings → API. Run the provided <b>schema.sql</b> first.</p>
+      <p class="sub" style="margin-bottom:0">Find the first two under Supabase → Project Settings → API.</p>
     </div>`;
   $('#saveCfg').onclick=()=>{
     const u=$('#su').value.trim().replace(/\/$/,''), k=$('#sk').value.trim();
     if(!u||!k)return toast('Enter both fields');
-    CFG.set(u,k); sb=null; toast('Connected'); location.hash='#/';
+    CFG.set(u,k); CFG.setPub($('#pu').value.trim()); toast('Saved — reloading…'); setTimeout(()=>location.reload(),600);
   };
   const r=$('#resetCfg'); if(r)r.onclick=()=>{localStorage.clear();sb=null;location.hash='#/settings';location.reload();};
 }
