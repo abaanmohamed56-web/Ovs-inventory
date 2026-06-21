@@ -197,9 +197,61 @@
   .label-sheet .lzone{font-weight:600;margin-top:4px}
   .label-sheet img.lq{width:120px;height:120px}
   .label-sheet ul{margin:8px 0 0;padding-left:18px;font-size:13px}
+
+  /* ---- boot splash ---- */
+  #ovs-splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+  .ovs-splash-lockup{text-align:center}
+  .ovs-splash-word{display:flex;justify-content:center;line-height:.9}
+  .ovs-splash-word span{display:inline-block;font-family:"IBM Plex Sans Condensed",sans-serif;font-size:clamp(64px,16vw,108px);font-weight:700;letter-spacing:-.02em;color:var(--ink);opacity:0}
+  .ovs-splash-rule{width:54px;height:2px;background:var(--accent);margin:20px auto 0;transform:scaleX(0)}
+  .ovs-splash-tag{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;letter-spacing:.4em;color:var(--muted);margin-top:18px;padding-left:.4em;opacity:0}
+  .ovs-splash-loader{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:13px}
+  .ovs-splash-spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(0,21,38,.12);border-top-color:var(--accent)}
+  .ovs-splash-loading{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
+  @keyframes ovsSplashL{0%{opacity:0;transform:translateX(-70px)}70%{opacity:1;transform:translateX(4px)}100%{opacity:1;transform:translateX(0)}}
+  @keyframes ovsSplashR{0%{opacity:0;transform:translateX(70px)}70%{opacity:1;transform:translateX(-4px)}100%{opacity:1;transform:translateX(0)}}
+  @keyframes ovsSplashC{0%{opacity:0;transform:scale(.45)}65%{opacity:1;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
+  @keyframes ovsSplashRule{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+  @keyframes ovsSplashTag{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
+  @keyframes ovsSplashSpin{to{transform:rotate(360deg)}}
+  @keyframes ovsSplashOut{0%{opacity:1}100%{opacity:0;visibility:hidden}}
+  #ovs-splash.run .ovs-splash-word span:nth-child(1){animation:ovsSplashL .78s var(--ease-out) both .05s}
+  #ovs-splash.run .ovs-splash-word span:nth-child(2){animation:ovsSplashC .78s var(--ease-out) both .14s}
+  #ovs-splash.run .ovs-splash-word span:nth-child(3){animation:ovsSplashR .78s var(--ease-out) both .1s}
+  #ovs-splash.run .ovs-splash-rule{animation:ovsSplashRule .55s ease .5s both}
+  #ovs-splash.run .ovs-splash-tag{animation:ovsSplashTag .55s ease .58s both}
+  #ovs-splash.run .ovs-splash-spinner{animation:ovsSplashSpin .82s linear infinite}
+  #ovs-splash.run{animation:ovsSplashOut .6s cubic-bezier(.5,0,.2,1) 1.4s both}
+  @media (prefers-reduced-motion: reduce){
+    #ovs-splash.run .ovs-splash-word span,
+    #ovs-splash.run .ovs-splash-rule,
+    #ovs-splash.run .ovs-splash-tag{animation-duration:.01s}
+  }
 </style>
 </head>
 <body>
+<div id="ovs-splash">
+  <div class="ovs-splash-lockup">
+    <div class="ovs-splash-word"><span>O</span><span>V</span><span>S</span></div>
+    <div class="ovs-splash-rule"></div>
+    <div class="ovs-splash-tag">MALDIVES INVENTORY</div>
+  </div>
+  <div class="ovs-splash-loader">
+    <div class="ovs-splash-spinner"></div>
+    <div class="ovs-splash-loading">Loading workspace</div>
+  </div>
+</div>
+<script>
+(function(){
+  var splash=document.getElementById('ovs-splash');
+  if(!splash)return;
+  requestAnimationFrame(function(){splash.classList.add('run')});
+  var done=false;
+  function remove(){if(done)return;done=true;splash.remove()}
+  splash.addEventListener('animationend',function(e){if(e.animationName==='ovsSplashOut')remove()});
+  setTimeout(remove,3200);
+})();
+</script>
 <header class="top">
   <div class="brand"><span class="ovsmark">OVS</span><small>inventory</small></div>
   <div class="grow"></div>
