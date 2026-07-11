@@ -756,7 +756,7 @@ async function viewShipment(id){
   const [{data:ship},{data:boxes,error},{data:depts},{data:unboxed}] = await Promise.all([
     client().from('shipments').select('*').eq('id',id).single(),
     client().from('boxes').select('*, items(count)').eq('shipment_id',id).order('code'),
-    client().from('departments').select('*').order('code'),
+    client().from('departments').select('*').eq('shipment_id',id).order('code'),
     client().from('items').select('id,sku,style,gender,qty').eq('shipment_id',id).is('box_id',null).order('sku')
   ]);
   if(error)return errView(error);
@@ -851,7 +851,7 @@ async function viewShipment(id){
     ],confirmLabel:'Add'});
     if(!r)return;
     const code=r.code.toUpperCase();
-    const {error}=await client().from('departments').insert({code,name:r.name});
+    const {error}=await client().from('departments').insert({code,name:r.name,shipment_id:id});
     if(error)return toast('⚠ '+(error.code==='23505'?`Code ${code} already exists`:error.message));
     toast('Department added'); viewShipment(id);
   };
@@ -1129,7 +1129,7 @@ function openAddForm(box){
     if(!data)return; const uniq=[...new Set(data.map(d=>d.brand).filter(Boolean))];
     g('#brandlist').innerHTML=uniq.map(b=>`<option value="${esc(b)}">`).join('');
   });
-  client().from('departments').select('code,name').order('code').then(({data})=>{
+  client().from('departments').select('code,name').eq('shipment_id',box.shipment_id).order('code').then(({data})=>{
     if(!data)return;
     g('#deptlist').innerHTML=data.map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('');
   });
