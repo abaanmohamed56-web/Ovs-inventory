@@ -107,8 +107,14 @@
   .emptystate .big{font-size:40px;margin-bottom:8px}
   .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;vertical-align:-3px}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);background:rgba(13,20,32,.9);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));border:1px solid rgba(255,255,255,.12);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;z-index:80;box-shadow:0 10px 30px -10px #000;opacity:0;pointer-events:none;transition:opacity 200ms ease-out,transform 240ms var(--ease-out)}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);background:rgba(13,20,32,.9);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));border:1px solid rgba(255,255,255,.12);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;z-index:80;box-shadow:0 10px 30px -10px #000;opacity:0;pointer-events:none;touch-action:pan-y;transition:opacity 200ms ease-out,transform 240ms var(--ease-out)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+
+  /* page recede — the main content scales back and rounds off behind an open sheet */
+  #page{transition:transform 400ms var(--ease-drawer);transform-origin:top center}
+  body.modal-lock{overflow:hidden}
+  body.modal-lock #page{transform:scale(.96);border-radius:16px;overflow:hidden}
+  @media(prefers-reduced-motion:reduce){ body.modal-lock #page{transform:none} }
   .grid{display:grid;gap:12px}
   @media(min-width:620px){.grid.two{grid-template-columns:1fr 1fr}}
   .grid.tiles{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))}
@@ -181,7 +187,10 @@
   @media(min-width:620px){.modal{align-items:center;padding:20px}}
   .sheet{background:rgba(13,20,32,.88);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid rgba(255,255,255,.1);color:var(--ink);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;box-shadow:0 -10px 50px -10px rgba(0,0,0,.6);transform:translateY(16px) scale(.985);opacity:0;transition:transform 360ms var(--ease-drawer),opacity 220ms ease-out}
   .modal.open .sheet{transform:none;opacity:1}
+  .grabber{width:36px;height:5px;border-radius:999px;background:rgba(255,255,255,.28);margin:10px auto -2px;cursor:grab;touch-action:none;display:none}
+  .grabber:active{cursor:grabbing;background:rgba(255,255,255,.45)}
   @media(max-width:619px){
+    .grabber{display:block}
     .sheet{transform:translateY(100%);opacity:1;transition:transform 380ms var(--ease-drawer)}
     .modal.open .sheet{transform:translateY(0)}
   }
@@ -299,6 +308,7 @@
   setTimeout(remove,3200);
 })();
 </script>
+<div id="page">
 <header class="top">
   <div class="brand"><span class="ovsmark">OVS</span><small>inventory</small></div>
   <div class="grow"></div>
@@ -311,6 +321,7 @@
   <a href="#/import" data-t="import">Import</a>
 </nav>
 <main id="app"></main>
+</div>
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -341,16 +352,64 @@ function client(){ return sb; }
 const app = document.getElementById('app');
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let toastT;
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400);}
+const reduceMotion = ()=> matchMedia('(prefers-reduced-motion: reduce)').matches;
+let toastT, toastDeadline=0, toastRemain=2400;
+function toast(m){
+  const t=$('#toast'); t.textContent=m; t.style.transform=''; t.style.opacity='';
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastRemain=2400; toastDeadline=Date.now()+toastRemain;
+  toastT=setTimeout(()=>t.classList.remove('show'),toastRemain);
+}
+// Hover pauses the auto-dismiss timer; horizontal swipe dismisses it — Sonner-style.
+(function initToastGestures(){
+  const t=document.getElementById('toast');
+  if(!t)return;
+  t.addEventListener('pointerenter',()=>{
+    if(!t.classList.contains('show'))return;
+    clearTimeout(toastT);
+    toastRemain=Math.max(400,toastDeadline-Date.now());
+  });
+  t.addEventListener('pointerleave',()=>{
+    if(!t.classList.contains('show'))return;
+    toastDeadline=Date.now()+toastRemain;
+    toastT=setTimeout(()=>t.classList.remove('show'),toastRemain);
+  });
+  if(reduceMotion())return;
+  let sx=0,dx=0,dragging=false;
+  t.addEventListener('pointerdown',e=>{
+    if(!t.classList.contains('show'))return;
+    dragging=true; sx=e.clientX; t.style.transition='none';
+    try{ t.setPointerCapture?.(e.pointerId); }catch(err){}
+  });
+  t.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    dx=e.clientX-sx;
+    t.style.transform=`translateX(calc(-50% + ${dx}px))`;
+    t.style.opacity=String(Math.max(.15,1-Math.abs(dx)/140));
+  });
+  const endDrag=()=>{
+    if(!dragging)return; dragging=false;
+    t.style.transition='';
+    if(Math.abs(dx)>70){ clearTimeout(toastT); t.classList.remove('show'); }
+    t.style.transform=''; t.style.opacity=''; dx=0;
+  };
+  t.addEventListener('pointerup',endDrag);
+  t.addEventListener('pointercancel',endDrag);
+})();
 function loading(){app.innerHTML='<div class="emptystate"><div class="big">⏳</div>Loading…</div>';}
 new MutationObserver(()=>{app.classList.remove('fade-in');void app.offsetWidth;app.classList.add('fade-in');}).observe(app,{childList:true});
-const reduceMotion = ()=> matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Staggered entrance for repeated list/grid items — skipped entirely under reduced-motion.
+// Set as individual longhands, not the `animation` shorthand: assigning animation-delay
+// separately right after a var()-containing shorthand string causes some browsers to
+// silently drop the whole declaration (animation-name ends up empty, so nothing plays).
 function staggerIn(container, selector, step=28, max=8){
   if(!container || reduceMotion()) return;
   container.querySelectorAll(selector).forEach((el,i)=>{
-    el.style.animation='fadeInUp 320ms var(--ease-out) both';
+    el.style.animationName='fadeInUp';
+    el.style.animationDuration='320ms';
+    el.style.animationTimingFunction='var(--ease-out)';
+    el.style.animationFillMode='both';
     el.style.animationDelay=Math.min(i,max)*step+'ms';
   });
 }
@@ -382,16 +441,62 @@ function appBase(){
 }
 
 /* ---------- custom dialog helpers ---------- */
+// Tracks how many sheets/dialogs are open so the page behind can recede (Vaul-style) and
+// body scroll locks while any of them is up. Counted rather than boolean since dialogs
+// can theoretically stack (e.g. a confirm on top of a form).
+let openSheetCount=0;
+function modalOpened(){
+  openSheetCount++;
+  document.body.classList.add('modal-lock');
+}
+function modalClosed(){
+  openSheetCount=Math.max(0,openSheetCount-1);
+  if(openSheetCount===0)document.body.classList.remove('modal-lock');
+}
+// Drag-to-dismiss for the mobile bottom sheet: 1:1 finger tracking while dragging down,
+// rubber-band resistance dragging up, velocity- and distance-based release threshold.
+function enableSheetDrag(overlay, sheetEl, onDismiss){
+  const grabber=sheetEl.querySelector('.grabber');
+  if(!grabber||reduceMotion())return;
+  const isSheetMode=()=>matchMedia('(max-width:619px)').matches;
+  let startY=0,startT=0,dy=0,dragging=false;
+  grabber.addEventListener('pointerdown',e=>{
+    if(!isSheetMode())return;
+    dragging=true; startY=e.clientY; startT=Date.now(); dy=0;
+    sheetEl.style.transition='none';
+    try{ grabber.setPointerCapture?.(e.pointerId); }catch(err){}
+  });
+  grabber.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    dy=e.clientY-startY;
+    if(dy<0)dy/=6; // rubber-band resistance when dragging past the open position
+    sheetEl.style.transform=`translateY(${dy}px)`;
+  });
+  const release=()=>{
+    if(!dragging)return; dragging=false;
+    sheetEl.style.transition='';
+    const velocity=dy/Math.max(1,Date.now()-startT);
+    if(dy>90||velocity>0.5){
+      sheetEl.style.transform='translateY(100%)';
+      onDismiss();
+    }else{
+      sheetEl.style.transform='';
+    }
+  };
+  grabber.addEventListener('pointerup',release);
+  grabber.addEventListener('pointercancel',release);
+}
 function _dlgOverlay(content, narrow=true){
   const el=document.createElement('div');
   el.className='modal dmodal';
-  el.innerHTML=`<div class="sheet"${narrow?' style="max-width:440px"':''}>${content}</div>`;
+  el.innerHTML=`<div class="sheet"${narrow?' style="max-width:440px"':''}><div class="grabber"></div>${content}</div>`;
   document.body.appendChild(el);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('open')));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.classList.add('open');modalOpened();}));
   return el;
 }
 function _dlgClose(el, val, resolve){
   el.classList.remove('open');
+  modalClosed();
   setTimeout(()=>el.remove(),200);
   resolve(val);
 }
@@ -415,6 +520,7 @@ function showDialog({title,fields=[],confirmLabel='Save',danger=false}){
         <button class="btn ${danger?'danger':'acc'}" id="_dok">${esc(confirmLabel)}</button>
       </div>`);
     const close=v=>_dlgClose(ov,v,resolve);
+    enableSheetDrag(ov,ov.querySelector('.sheet'),()=>close(null));
     ov.addEventListener('click',e=>{if(e.target===ov)close(null);});
     ov.querySelector('#_dc').onclick=()=>close(null);
     ov.querySelector('#_dok').onclick=()=>{
@@ -448,6 +554,7 @@ function showConfirm({title,message='',confirmLabel='Delete',danger=true}){
         <button class="btn ${danger?'danger':'acc'}" id="_dok">${esc(confirmLabel)}</button>
       </div>`);
     const close=v=>_dlgClose(ov,v,resolve);
+    enableSheetDrag(ov,ov.querySelector('.sheet'),()=>close(false));
     ov.addEventListener('click',e=>{if(e.target===ov)close(false);});
     ov.querySelector('#_dc').onclick=()=>close(false);
     ov.querySelector('#_dok').onclick=()=>close(true);
@@ -759,8 +866,16 @@ async function viewShipment(id){
     if(error)return toast('⚠ '+error.message); toast('Updated'); viewShipment(id);
   });
   app.querySelectorAll('[data-del-dept]').forEach(btn=>btn.onclick=async()=>{
-    const ok=await showConfirm({title:`Delete department ${btn.dataset.code}?`,message:'Boxes in this department will move to Unassigned.',confirmLabel:'Delete department'});
+    const code=btn.dataset.code;
+    const ok=await showConfirm({title:`Delete department ${code}?`,message:'Boxes in this department will move to Unassigned.',confirmLabel:'Delete department'});
     if(!ok)return;
+    // department_code is a soft text reference (no DB-level FK), so boxes/items pointing
+    // at it must be unlinked explicitly or they silently become invisible orphans.
+    const [{error:e1},{error:e2}]=await Promise.all([
+      client().from('boxes').update({department_code:null}).eq('department_code',code),
+      client().from('items').update({department_code:null}).eq('department_code',code)
+    ]);
+    if(e1||e2)return toast('⚠ '+(e1||e2).message);
     const {error}=await client().from('departments').delete().eq('id',btn.dataset.delDept);
     if(error)return toast('⚠ '+error.message); toast('Department deleted'); viewShipment(id);
   });
@@ -979,6 +1094,7 @@ function openAddForm(box){
   overlay.className='modal';
   overlay.innerHTML=`
     <div class="sheet">
+      <div class="grabber"></div>
       <div class="shd"><span>Add items to</span><span class="code">${esc(box.code)}</span>
         <span class="count" id="cnt">0 added</span></div>
       <div class="sbody">
@@ -1006,7 +1122,7 @@ function openAddForm(box){
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('open')));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{overlay.classList.add('open');modalOpened();}));
   const g=id=>overlay.querySelector(id);
   // load existing brands + departments for autocomplete
   client().from('items').select('brand').not('brand','is',null).limit(500).then(({data})=>{
@@ -1019,7 +1135,8 @@ function openAddForm(box){
   });
   g('#f_name').focus();
   const recent=[];
-  const close=()=>{overlay.classList.remove('open');setTimeout(()=>{overlay.remove();viewBox(box.code);},200);};
+  const close=()=>{overlay.classList.remove('open');modalClosed();setTimeout(()=>{overlay.remove();viewBox(box.code);},200);};
+  enableSheetDrag(overlay,overlay.querySelector('.sheet'),close);
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
   g('#f_done').onclick=close;
 
