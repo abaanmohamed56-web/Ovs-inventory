@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root{
+    color-scheme:dark;
     --navy:#001526; --bg:#0b1422; --panel:rgba(255,255,255,.07); --panel-strong:rgba(255,255,255,.12);
     --ink:#eef4f9; --muted:#93a7ba;
     --accent:#fbba07; --accent-2:#f59e0b; --accent-ink:#1a1300;
@@ -77,6 +78,11 @@
   .sub{color:var(--muted);font-size:13px}
   label.f{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 5px}
   input.t,select.t,textarea.t{width:100%;background:rgba(255,255,255,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line-strong);border-radius:8px;padding:11px 12px;font-size:15px;color:var(--ink)}
+  /* the dropdown popup is native OS chrome — browsers only partially honor authored colors on
+     <option>, so force the light scheme and dark text explicitly rather than fight for a themed
+     popup that may silently fall back to unreadable pale-on-white in some engines */
+  select.t{color-scheme:light}
+  select.t option{background-color:#fff;color:var(--navy)}
   input.t::placeholder,select.t::placeholder,textarea.t::placeholder{color:var(--muted)}
   input.t:focus,select.t:focus,textarea.t:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent;box-shadow:0 0 0 5px rgba(251,186,7,.16)}
   .row{display:flex;gap:10px;flex-wrap:wrap}
@@ -557,13 +563,19 @@ function showDialog({title,fields=[],confirmLabel='Save',danger=false}){
   });
 }
 // showConfirm({title, message, confirmLabel, danger})
-// returns Promise<boolean>
+// returns Promise<boolean>. Every use of this dialog is destructive (delete/remove), so it
+// always gates on the shared delete password rather than each call site opting in.
+const DELETE_PASSWORD='abaan';
 function showConfirm({title,message='',confirmLabel='Delete',danger=true}){
   return new Promise(resolve=>{
     const ov=_dlgOverlay(`
       <div class="shd"><span style="font-size:15px;font-weight:700">${esc(title)}</span></div>
       <div class="sbody dmodal" style="padding:20px 20px 12px">
         <p style="margin:0;font-size:14px;color:var(--muted);line-height:1.6;white-space:pre-line">${esc(message)}</p>
+        <div class="dfield" style="margin-top:16px;margin-bottom:0">
+          <label class="f">Password required</label>
+          <input class="t mono" id="_pw" type="password" placeholder="Enter password" autocomplete="off">
+        </div>
       </div>
       <div class="sfoot">
         <button class="btn ghost" id="_dc">Cancel</button>
@@ -573,12 +585,20 @@ function showConfirm({title,message='',confirmLabel='Delete',danger=true}){
     enableSheetDrag(ov,ov.querySelector('.sheet'),()=>close(false));
     ov.addEventListener('click',e=>{if(e.target===ov)close(false);});
     ov.querySelector('#_dc').onclick=()=>close(false);
-    ov.querySelector('#_dok').onclick=()=>close(true);
+    const tryConfirm=()=>{
+      const pw=ov.querySelector('#_pw');
+      if(pw.value!==DELETE_PASSWORD){
+        pw.style.outline='2px solid var(--bad)'; pw.value=''; pw.focus();
+        toast('⚠ Incorrect password'); return;
+      }
+      close(true);
+    };
+    ov.querySelector('#_dok').onclick=tryConfirm;
     ov.addEventListener('keydown',e=>{
       if(e.key==='Escape')close(false);
-      if(e.key==='Enter'){e.preventDefault();close(true);}
+      if(e.key==='Enter'){e.preventDefault();tryConfirm();}
     });
-    setTimeout(()=>{ov.querySelector('#_dok').focus();},60);
+    setTimeout(()=>{ov.querySelector('#_pw').focus();},60);
   });
 }
 
