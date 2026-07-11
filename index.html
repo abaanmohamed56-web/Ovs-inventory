@@ -631,7 +631,23 @@ async function route(){
 
 /* ===================================================== SEARCH */
 let searchT;
-const FILTER_IDS=['fltDept','fltGender','fltStatus','fltShipment'];
+const FILTER_IDS=['fltDept','fltGender','fltStatus','fltShipment','fltCategory'];
+// Category is matched against the free-text style/name field (there's no structured column
+// for it) — exclude lets a broad word like "shirt" skip garments that also match a narrower
+// category ("t-shirt", "sweatshirt") so the two don't overlap.
+const CATEGORY_FILTERS={
+  'T-Shirt':{like:'t-shirt'},
+  'Shirt':{like:'shirt',exclude:['t-shirt','sweatshirt']},
+  'Dress':{like:'dress'},
+  'Shorts':{like:'short'},
+  'Pants':{like:'pant'},
+  'Skirt':{like:'skirt'},
+  'Sweater':{like:'sweater'},
+  'Sweatshirt':{like:'sweatshirt'},
+  'Hoodie':{like:'hoodie'},
+  'Jacket':{like:'jacket'},
+  'Top':{like:'top'}
+};
 function viewSearch(){
   app.innerHTML=`
     <h1 class="page">Find an item</h1>
@@ -654,6 +670,8 @@ function viewSearch(){
           <select class="t sm" id="fltStatus"><option value="">Any status</option><option value="stored">Stored</option><option value="opened">Opened</option><option value="empty">Empty</option></select></div>
         <div class="ffield"><label class="ff">Shipment</label>
           <select class="t sm" id="fltShipment"><option value="">All shipments</option></select></div>
+        <div class="ffield"><label class="ff">Category</label>
+          <select class="t sm" id="fltCategory"><option value="">All categories</option>${Object.keys(CATEGORY_FILTERS).map(c=>`<option value="${c}">${c}</option>`).join('')}</select></div>
       </div>
       <button class="btn ghost sm" id="fltClear">Clear filters</button>
     </div></div></div>
@@ -744,7 +762,8 @@ async function doSearch(term){
     dept:$('#fltDept')?.value||'',
     gender:$('#fltGender')?.value||'',
     status:$('#fltStatus')?.value||'',
-    shipment:$('#fltShipment')?.value||''
+    shipment:$('#fltShipment')?.value||'',
+    category:$('#fltCategory')?.value||''
   };
   const active=Object.values(filters).some(Boolean);
   if(!term && !active){res.innerHTML='';return;}
@@ -758,6 +777,11 @@ async function doSearch(term){
   if(filters.gender)query=query.eq('gender',filters.gender);
   if(filters.status)query=query.eq('status',filters.status);
   if(filters.shipment)query=query.eq('shipment_name',filters.shipment);
+  if(filters.category && CATEGORY_FILTERS[filters.category]){
+    const c=CATEGORY_FILTERS[filters.category];
+    query=query.ilike('style','%'+c.like+'%');
+    (c.exclude||[]).forEach(x=>{ query=query.not('style','ilike','%'+x+'%'); });
+  }
   const {data,error}=await query.order('box_code').limit(200);
   if(error){res.innerHTML=`<div class="emptystate">⚠ ${esc(error.message)}</div>`;return;}
   if(!data.length){res.innerHTML=`<div class="emptystate"><div class="big">∅</div>No items match${term?' “'+esc(term)+'”':' these filters'}.</div>`;return;}
@@ -1252,7 +1276,7 @@ function openAddForm(box){
       box_id:box.id, style, sku,
       department_code:g('#f_dept').value.trim()||null,
       brand:g('#f_brand').value.trim()||null,
-      gender:g('#f_gender').value||null,
+      gender:normGender(g('#f_gender').value),
       color:g('#f_color').value.trim()||null,
       size:g('#f_size').value.trim()||null,
       qty:Math.max(0,parseInt(g('#f_qty').value||'1',10))
