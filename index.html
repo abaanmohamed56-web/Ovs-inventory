@@ -866,8 +866,16 @@ async function viewShipment(id){
     if(error)return toast('⚠ '+error.message); toast('Updated'); viewShipment(id);
   });
   app.querySelectorAll('[data-del-dept]').forEach(btn=>btn.onclick=async()=>{
-    const ok=await showConfirm({title:`Delete department ${btn.dataset.code}?`,message:'Boxes in this department will move to Unassigned.',confirmLabel:'Delete department'});
+    const code=btn.dataset.code;
+    const ok=await showConfirm({title:`Delete department ${code}?`,message:'Boxes in this department will move to Unassigned.',confirmLabel:'Delete department'});
     if(!ok)return;
+    // department_code is a soft text reference (no DB-level FK), so boxes/items pointing
+    // at it must be unlinked explicitly or they silently become invisible orphans.
+    const [{error:e1},{error:e2}]=await Promise.all([
+      client().from('boxes').update({department_code:null}).eq('department_code',code),
+      client().from('items').update({department_code:null}).eq('department_code',code)
+    ]);
+    if(e1||e2)return toast('⚠ '+(e1||e2).message);
     const {error}=await client().from('departments').delete().eq('id',btn.dataset.delDept);
     if(error)return toast('⚠ '+error.message); toast('Department deleted'); viewShipment(id);
   });
