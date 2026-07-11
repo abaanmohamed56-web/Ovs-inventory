@@ -143,6 +143,21 @@
   .searchbar input::placeholder{color:var(--muted)}
   .searchbar input:focus{outline:none}
   .searchbar button{border:none;background:linear-gradient(135deg,#ffd873,var(--accent) 55%,var(--accent-2));color:var(--accent-ink);padding:0 20px;font-weight:700;cursor:pointer;font-size:15px}
+  .searchrow{display:flex;gap:8px;align-items:stretch}
+  .searchrow .searchbar{flex:1}
+  .filtertoggle{position:relative;flex:none;gap:6px}
+  .filtertoggle.active{background:rgba(251,186,7,.18);border-color:rgba(251,186,7,.5);color:var(--accent)}
+  .fbadge{background:var(--accent);color:var(--accent-ink);font-family:"IBM Plex Mono";font-size:10px;font-weight:700;border-radius:999px;min-width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+  .fchev{font-size:10px;transition:transform 200ms var(--ease-out)}
+  #filterToggle[aria-expanded="true"] .fchev{transform:rotate(180deg)}
+  .filterpanel{display:grid;grid-template-rows:0fr;transition:grid-template-rows 280ms var(--ease-out)}
+  .filterpanel.open{grid-template-rows:1fr;margin-top:10px}
+  .filterpanel .fpinner{overflow:hidden;min-height:0}
+  .filterpanel .fpcard{padding:14px;background:var(--panel);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .filterpanel .frow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .filterpanel .ffield{flex:1;min-width:130px}
+  .filterpanel .ff{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+  select.t.sm,input.t.sm{padding:8px 10px;font-size:13px}
   .resbox{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);box-shadow:var(--shadow)}
   .resbox .hd{display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(135deg,var(--navy),#0a1e33);color:#fff;cursor:pointer;transition:transform 120ms var(--ease-out)}
   .resbox .hd:active{transform:scale(.985)}
@@ -202,6 +217,7 @@
     .toast,.toast.show{transform:translateX(-50%);transition:opacity 180ms ease}
     #app.fade-in,.qskel,.itemrow.saved-flash{animation:none}
     .qtile:hover{transform:none}
+    .filterpanel,.fchev{transition:none}
   }
   @media(min-width:620px){.sheet{border-radius:16px}}
   .sheet .shd{position:sticky;top:0;background:linear-gradient(135deg,var(--navy),#0a1e33);color:#fff;display:flex;align-items:center;gap:10px;padding:14px 16px}
@@ -595,26 +611,74 @@ async function route(){
 
 /* ===================================================== SEARCH */
 let searchT;
+const FILTER_IDS=['fltDept','fltGender','fltStatus','fltShipment'];
 function viewSearch(){
   app.innerHTML=`
     <h1 class="page">Find an item</h1>
-    <div class="searchbar">
-      <input id="q" placeholder="Style, SKU or colour…  e.g. oxford shirt, blue, SK-204" autocomplete="off">
-      <button id="qbtn">Search</button>
+    <div class="searchrow">
+      <div class="searchbar">
+        <input id="q" placeholder="Style, SKU or colour…  e.g. oxford shirt, blue, SK-204" autocomplete="off">
+        <button id="qbtn">Search</button>
+      </div>
+      <button class="iconbtn filtertoggle" id="filterToggle" aria-expanded="false" title="Advanced filters">
+        Filters<span class="fbadge" id="filterBadge" hidden>0</span><span class="fchev">▾</span>
+      </button>
     </div>
-    <p class="sub" style="margin:10px 2px">Type any part of a name, SKU or colour. Results show which box and where it is.</p>
+    <div class="filterpanel" id="filterPanel"><div class="fpinner"><div class="fpcard">
+      <div class="frow">
+        <div class="ffield"><label class="ff">Department</label>
+          <select class="t sm" id="fltDept"><option value="">All departments</option></select></div>
+        <div class="ffield"><label class="ff">Gender</label>
+          <select class="t sm" id="fltGender"><option value="">All genders</option>${GENDERS.filter(Boolean).map(g=>`<option value="${g}">${g}</option>`).join('')}</select></div>
+        <div class="ffield"><label class="ff">Box status</label>
+          <select class="t sm" id="fltStatus"><option value="">Any status</option><option value="stored">Stored</option><option value="opened">Opened</option><option value="empty">Empty</option></select></div>
+        <div class="ffield"><label class="ff">Shipment</label>
+          <select class="t sm" id="fltShipment"><option value="">All shipments</option></select></div>
+      </div>
+      <button class="btn ghost sm" id="fltClear">Clear filters</button>
+    </div></div></div>
+    <p class="sub" style="margin:10px 2px">Type any part of a name, SKU or colour, or use filters to browse. Results show which box and where it is.</p>
     <div id="res"></div>
     <div id="quicknav"></div>`;
   const q=$('#q'); q.focus();
   const go=()=>{
     const term=q.value.trim();
     doSearch(term);
-    toggleQuicknav(!term);
+    toggleQuicknav(!term && !hasActiveFilters());
   };
   $('#qbtn').onclick=go;
   q.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
   q.addEventListener('input',()=>{clearTimeout(searchT);searchT=setTimeout(go,280);});
+  $('#filterToggle').onclick=()=>{
+    const open=$('#filterPanel').classList.toggle('open');
+    $('#filterToggle').setAttribute('aria-expanded',open?'true':'false');
+  };
+  FILTER_IDS.forEach(id=>{ $('#'+id).onchange=()=>{ updateFilterBadge(); go(); }; });
+  $('#fltClear').onclick=()=>{
+    FILTER_IDS.forEach(id=>{$('#'+id).value='';});
+    updateFilterBadge(); go();
+  };
+  loadFilterOptions();
   loadQuicknav();
+}
+function hasActiveFilters(){
+  return FILTER_IDS.some(id=>{const el=$('#'+id);return el&&el.value;});
+}
+function updateFilterBadge(){
+  const n=FILTER_IDS.filter(id=>{const el=$('#'+id);return el&&el.value;}).length;
+  const b=$('#filterBadge'); if(b){b.textContent=n;b.hidden=n===0;}
+  const t=$('#filterToggle'); if(t)t.classList.toggle('active',n>0);
+}
+async function loadFilterOptions(){
+  const [{data:deptRows},{data:shipRows}]=await Promise.all([
+    client().from('item_search').select('department_code').not('department_code','is',null),
+    client().from('item_search').select('shipment_name').not('shipment_name','is',null)
+  ]);
+  const uniqSorted=(rows,key)=>[...new Set((rows||[]).map(r=>r[key]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const dSel=$('#fltDept');
+  if(dSel)dSel.innerHTML='<option value="">All departments</option>'+uniqSorted(deptRows,'department_code').map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  const sSel=$('#fltShipment');
+  if(sSel)sSel.innerHTML='<option value="">All shipments</option>'+uniqSorted(shipRows,'shipment_name').map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
 }
 function toggleQuicknav(show){
   const el=$('#quicknav'); if(el)el.style.display=show?'':'none';
@@ -656,15 +720,27 @@ async function loadQuicknav(){
 }
 async function doSearch(term){
   const res=$('#res'); if(!res)return;
-  if(!term){res.innerHTML='';return;}
+  const filters={
+    dept:$('#fltDept')?.value||'',
+    gender:$('#fltGender')?.value||'',
+    status:$('#fltStatus')?.value||'',
+    shipment:$('#fltShipment')?.value||''
+  };
+  const active=Object.values(filters).some(Boolean);
+  if(!term && !active){res.innerHTML='';return;}
   res.innerHTML='<div class="emptystate">Searching…</div>';
-  const t=term.replace(/[,()%]/g,' ').trim();
-  const {data,error}=await client().from('item_search')
-    .select('*')
-    .or(`style.ilike.%${t}%,sku.ilike.%${t}%,color.ilike.%${t}%,brand.ilike.%${t}%,department_code.ilike.%${t}%`)
-    .order('box_code').limit(200);
+  let query=client().from('item_search').select('*');
+  if(term){
+    const t=term.replace(/[,()%]/g,' ').trim();
+    query=query.or(`style.ilike.%${t}%,sku.ilike.%${t}%,color.ilike.%${t}%,brand.ilike.%${t}%,department_code.ilike.%${t}%`);
+  }
+  if(filters.dept)query=query.eq('department_code',filters.dept);
+  if(filters.gender)query=query.eq('gender',filters.gender);
+  if(filters.status)query=query.eq('status',filters.status);
+  if(filters.shipment)query=query.eq('shipment_name',filters.shipment);
+  const {data,error}=await query.order('box_code').limit(200);
   if(error){res.innerHTML=`<div class="emptystate">⚠ ${esc(error.message)}</div>`;return;}
-  if(!data.length){res.innerHTML='<div class="emptystate"><div class="big">∅</div>No items match “'+esc(term)+'”.</div>';return;}
+  if(!data.length){res.innerHTML=`<div class="emptystate"><div class="big">∅</div>No items match${term?' “'+esc(term)+'”':' these filters'}.</div>`;return;}
   // group by box
   const byBox={};
   data.forEach(r=>{(byBox[r.box_code] ||= {zone:r.zone,status:r.status,rows:[]}).rows.push(r);});
