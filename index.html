@@ -203,8 +203,8 @@
   .dfield:last-child{margin-bottom:0}
 
   /* add-item modal */
-  .modal{position:fixed;inset:0;z-index:60;background:rgba(4,8,14,.68);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;padding:0;opacity:0;transition:opacity 220ms ease-out}
-  .modal.open{opacity:1}
+  .modal{position:fixed;inset:0;z-index:60;background:rgba(4,8,14,.68);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;padding:0;opacity:0;pointer-events:none;transition:opacity 220ms ease-out}
+  .modal.open{opacity:1;pointer-events:auto}
   @media(min-width:620px){.modal{align-items:center;padding:20px}}
   .sheet{background:rgba(13,20,32,.88);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid rgba(255,255,255,.1);color:var(--ink);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;box-shadow:0 -10px 50px -10px rgba(0,0,0,.6);transform:translateY(16px) scale(.985);opacity:0;transition:transform 360ms var(--ease-drawer),opacity 220ms ease-out}
   .modal.open .sheet{transform:none;opacity:1}
@@ -216,6 +216,22 @@
     .modal.open .sheet{transform:translateY(0)}
   }
   .qrhint{font-size:12px;color:var(--muted);max-width:150px;margin:0 auto;line-height:1.4;border:1px dashed var(--line-strong);border-radius:8px;padding:10px}
+  .scan-frame{position:absolute;inset:15% 22%;border:3px solid var(--accent);border-radius:16px;box-shadow:0 0 0 2000px rgba(0,0,0,.4);pointer-events:none}
+
+  /* dashboard */
+  .stat{text-align:center}
+  .stat-n{font-family:"IBM Plex Sans Condensed";font-weight:700;font-size:32px;line-height:1}
+  .stat-l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
+  .dept-bar-row{display:grid;grid-template-columns:150px 1fr 44px;gap:10px;align-items:center;padding:9px 0}
+  .dept-bar-row+.dept-bar-row{border-top:1px solid var(--line)}
+  .dept-bar-label{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dept-bar-count{text-align:right;font-size:13px;color:var(--muted)}
+
+  /* bulk box actions */
+  .box-select{accent-color:var(--accent);width:18px;height:18px;flex:none;cursor:pointer}
+  .bulkbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(100px);opacity:0;pointer-events:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;background:rgba(13,20,32,.92);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);border:1px solid var(--line-strong);border-radius:12px;padding:10px 14px;box-shadow:0 14px 40px -12px rgba(0,0,0,.6);z-index:70;transition:transform 260ms var(--ease-drawer),opacity 200ms ease-out;max-width:calc(100vw - 24px)}
+  .bulkbar.show{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
+  @media(prefers-reduced-motion:reduce){ .bulkbar{transition:opacity 180ms ease;transform:translateX(-50%)} .bulkbar.show{transform:translateX(-50%)} }
   @media(prefers-reduced-motion:reduce){
     .modal,.modal .sheet{transition:opacity 180ms ease}
     .sheet{transform:none}
@@ -335,16 +351,30 @@
   <div class="brand"><span class="ovsmark">OVS</span><small>inventory</small></div>
   <div class="grow"></div>
   <button class="iconbtn" id="gotoBox">⌗ Go to box</button>
+  <button class="iconbtn" id="scanBox" title="Scan a box's QR code">📷</button>
+  <button class="iconbtn" id="offlineBadge" hidden title="Pending changes — click to retry sync">⏳ 0 pending</button>
   <button class="iconbtn" onclick="location.hash='#/settings'">⚙</button>
 </header>
 <nav class="tabs" id="tabs">
   <a href="#/" data-t="">Search</a>
+  <a href="#/dashboard" data-t="dashboard">Dashboard</a>
   <a href="#/shipments" data-t="shipments">Shipments</a>
   <a href="#/import" data-t="import">Import</a>
+  <a href="#/activity" data-t="activity">Activity</a>
 </nav>
 <main id="app"></main>
 </div>
 <div class="toast" id="toast"></div>
+<div class="modal" id="scannerModal">
+  <div class="sheet" style="max-width:480px;padding:0;overflow:hidden">
+    <div class="shd"><span>Scan box QR code</span><button class="btn ghost sm" id="scanCancel" style="margin-left:auto">✕</button></div>
+    <div style="position:relative;background:#000">
+      <video id="scanVideo" playsinline autoplay muted style="width:100%;display:block;max-height:70vh;object-fit:cover"></video>
+      <div class="scan-frame"></div>
+    </div>
+    <div class="sbody" style="text-align:center"><p class="sub" style="margin:0">Point your camera at the box's printed QR code.</p></div>
+  </div>
+</div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -374,6 +404,55 @@ function client(){ return sb; }
 const app = document.getElementById('app');
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- offline write-queue ----------
+   Scoped to the highest-frequency floor operations (qty edits, adding items, removing
+   items) rather than every mutation in the app — those are the ones most likely to fire
+   in a burst on patchy warehouse wifi. Queued in localStorage, replayed in order on
+   reconnect; a header pill shows how many writes are still pending. */
+const OFFLINE_KEY='ovs_offline_queue';
+function loadQueue(){ try{return JSON.parse(localStorage.getItem(OFFLINE_KEY)||'[]');}catch(e){return [];} }
+function saveQueue(q){ try{localStorage.setItem(OFFLINE_KEY,JSON.stringify(q));}catch(e){} updateOfflineBadge(); }
+function queueWrite(type,payload){
+  const q=loadQueue();
+  q.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),type,payload,ts:Date.now()});
+  saveQueue(q);
+}
+function updateOfflineBadge(){
+  const n=loadQueue().length;
+  const b=document.getElementById('offlineBadge');
+  if(!b)return;
+  b.hidden=n===0;
+  b.textContent='⏳ '+n+' pending';
+}
+let flushingQueue=false;
+async function flushQueue(){
+  if(flushingQueue || !navigator.onLine || !client())return;
+  flushingQueue=true;
+  try{
+    while(true){
+      const q=loadQueue();
+      if(!q.length)break;
+      const entry=q[0];
+      let error=null;
+      try{
+        if(entry.type==='qty'){
+          ({error}=await client().from('items').update({qty:entry.payload.qty}).eq('id',entry.payload.id));
+        }else if(entry.type==='add'){
+          ({error}=await client().from('items').insert(entry.payload));
+        }else if(entry.type==='delete'){
+          ({error}=await client().from('items').delete().eq('id',entry.payload.id));
+        }
+      }catch(e){ error=e; }
+      if(error)break; // still offline (or a real error) — leave it and the rest queued, stop for now
+      const fresh=loadQueue();
+      const idx=fresh.findIndex(x=>x.id===entry.id);
+      if(idx>=0){ fresh.splice(idx,1); saveQueue(fresh); }
+    }
+  }finally{ flushingQueue=false; }
+}
+window.addEventListener('online',flushQueue);
+setInterval(()=>{ if(loadQueue().length)flushQueue(); },15000);
 const reduceMotion = ()=> matchMedia('(prefers-reduced-motion: reduce)').matches;
 let toastT, toastDeadline=0, toastRemain=2400;
 function toast(m){
@@ -451,6 +530,45 @@ function collapseAndRemove(rowEl, after){
     rowEl.style.paddingTop='0'; rowEl.style.paddingBottom='0';
   }));
   setTimeout(()=>{ rowEl.remove(); after&&after(); },260);
+}
+
+/* ---------- activity log (undo for deletes) ---------- */
+// Column whitelists so a snapshot never carries embedded join keys (e.g. boxes fetched as
+// "*, shipments(name)") into a later restore insert, which would error on an unknown column.
+const COLS={
+  boxes:['id','code','shipment_id','zone','label_photo','status','created_at','department_code'],
+  items:['id','box_id','style','sku','color','size','qty','photo_url','created_at','brand','gender','department_code','shipment_id'],
+  shipments:['id','name','arrived_on','note','created_at'],
+  departments:['id','code','name','created_at','shipment_id']
+};
+function pick(obj,cols){ const o={}; cols.forEach(c=>{ if(obj && c in obj) o[c]=obj[c]; }); return o; }
+async function logActivity(entityType,summary,snapshot){
+  const {error}=await client().from('activity_log').insert({entity_type:entityType,summary,snapshot});
+  if(error)console.warn('activity log insert failed',error);
+}
+// Deleting a shipment cascades departments (DB-level) and any directly-linked unboxed items,
+// but boxes are explicitly deleted by this app (boxes.shipment_id is ON DELETE SET NULL, not
+// CASCADE) which in turn cascades their items — so the snapshot has to gather all four.
+async function deleteShipmentLogged(shipRow){
+  const [{data:boxRows},{data:deptRows},{data:unboxedRows}]=await Promise.all([
+    client().from('boxes').select('*').eq('shipment_id',shipRow.id),
+    client().from('departments').select('*').eq('shipment_id',shipRow.id),
+    client().from('items').select('*').eq('shipment_id',shipRow.id).is('box_id',null)
+  ]);
+  let boxedItems=[];
+  if((boxRows||[]).length){
+    const {data}=await client().from('items').select('*').in('box_id',boxRows.map(b=>b.id));
+    boxedItems=data||[];
+  }
+  const items=[...boxedItems,...(unboxedRows||[])];
+  await logActivity('shipment',`Deleted shipment "${shipRow.name}" (${(boxRows||[]).length} box(es), ${items.length} item line(s))`,{
+    shipment:pick(shipRow,COLS.shipments),
+    departments:(deptRows||[]).map(d=>pick(d,COLS.departments)),
+    boxes:(boxRows||[]).map(b=>pick(b,COLS.boxes)),
+    items:items.map(i=>pick(i,COLS.items))
+  });
+  if((boxRows||[]).length)await client().from('boxes').delete().in('id',boxRows.map(b=>b.id));
+  return client().from('shipments').delete().eq('id',shipRow.id);
 }
 const baseUrl = ()=> location.origin+location.pathname;
 // Base used for QR codes. Prefers the saved public URL; falls back to the
@@ -615,6 +733,59 @@ document.getElementById('gotoBox').onclick=async()=>{
   if(r?.code)location.hash='#/box/'+encodeURIComponent(r.code.trim());
 };
 
+/* ---------- camera QR scan ("Go to box" without typing) ---------- */
+let scannerStream=null, scannerRAF=null;
+function closeScanner(){
+  const overlay=document.getElementById('scannerModal');
+  overlay.classList.remove('open');
+  modalClosed();
+  if(scannerRAF)cancelAnimationFrame(scannerRAF);
+  scannerRAF=null;
+  if(scannerStream){ scannerStream.getTracks().forEach(t=>t.stop()); scannerStream=null; }
+}
+async function openScanner(){
+  if(!('BarcodeDetector' in window)){
+    toast('⚠ Camera scanning isn\'t supported in this browser — enter the code instead.');
+    return document.getElementById('gotoBox').click();
+  }
+  const overlay=document.getElementById('scannerModal');
+  overlay.classList.add('open');
+  modalOpened();
+  const video=document.getElementById('scanVideo');
+  try{
+    scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  }catch(e){
+    toast('⚠ Camera access denied or unavailable');
+    closeScanner();
+    return;
+  }
+  video.srcObject=scannerStream;
+  await video.play().catch(()=>{});
+  const detector=new BarcodeDetector({formats:['qr_code']});
+  const tick=async()=>{
+    if(!scannerStream)return;
+    try{
+      const codes=await detector.detect(video);
+      if(codes.length){
+        const raw=codes[0].rawValue||'';
+        closeScanner();
+        const m=raw.match(/[?&]box=([^&]+)/);
+        const code=m?decodeURIComponent(m[1]):raw;
+        if(code.trim())location.hash='#/box/'+encodeURIComponent(code.trim());
+        return;
+      }
+    }catch(e){}
+    scannerRAF=requestAnimationFrame(tick);
+  };
+  scannerRAF=requestAnimationFrame(tick);
+}
+document.getElementById('scanBox').onclick=openScanner;
+document.getElementById('scanCancel').onclick=closeScanner;
+document.getElementById('scannerModal').addEventListener('click',e=>{ if(e.target.id==='scannerModal')closeScanner(); });
+document.getElementById('offlineBadge').onclick=()=>{ toast('Retrying sync…'); flushQueue(); };
+updateOfflineBadge();
+flushQueue();
+
 function setTab(t){document.querySelectorAll('#tabs a').forEach(a=>a.classList.toggle('active',a.dataset.t===t));}
 
 async function route(){
@@ -625,13 +796,21 @@ async function route(){
   if(seg==='shipment'){setTab('shipments');return viewShipment(decodeURIComponent(arg||''));}
   if(seg==='box'){setTab('');return viewBox(decodeURIComponent(arg||''));}
   if(seg==='import'){setTab('import');return viewImport();}
+  if(seg==='dashboard'){setTab('dashboard');return viewDashboard();}
+  if(seg==='activity'){setTab('activity');return viewActivity();}
   if(seg==='settings'){setTab('');return viewSettings(false);}
   setTab('');return viewSearch();
 }
 
 /* ===================================================== SEARCH */
-let searchT;
+let searchT, searchLimit=200;
 const FILTER_IDS=['fltDept','fltGender','fltStatus','fltShipment','fltCategory'];
+const SORTS={
+  box:{col:'box_code',asc:true,label:'Box code'},
+  style:{col:'style',asc:true,label:'Style (A–Z)'},
+  qtyDesc:{col:'qty',asc:false,label:'Qty (high→low)'},
+  qtyAsc:{col:'qty',asc:true,label:'Qty (low→high)'}
+};
 // Category is matched against the free-text style/name field (there's no structured column
 // for it) — exclude lets a broad word like "shirt" skip garments that also match a narrower
 // category ("t-shirt", "sweatshirt") so the two don't overlap.
@@ -649,6 +828,7 @@ const CATEGORY_FILTERS={
   'Top':{like:'top'}
 };
 function viewSearch(){
+  searchLimit=200;
   app.innerHTML=`
     <h1 class="page">Find an item</h1>
     <div class="searchrow">
@@ -672,6 +852,8 @@ function viewSearch(){
           <select class="t sm" id="fltShipment"><option value="">All shipments</option></select></div>
         <div class="ffield"><label class="ff">Category</label>
           <select class="t sm" id="fltCategory"><option value="">All categories</option>${Object.keys(CATEGORY_FILTERS).map(c=>`<option value="${c}">${c}</option>`).join('')}</select></div>
+        <div class="ffield"><label class="ff">Sort by</label>
+          <select class="t sm" id="fltSort">${Object.entries(SORTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select></div>
       </div>
       <button class="btn ghost sm" id="fltClear">Clear filters</button>
     </div></div></div>
@@ -680,6 +862,7 @@ function viewSearch(){
     <div id="quicknav"></div>`;
   const q=$('#q'); q.focus();
   const go=()=>{
+    searchLimit=200;
     const term=q.value.trim();
     doSearch(term);
     toggleQuicknav(!term && !hasActiveFilters());
@@ -692,6 +875,7 @@ function viewSearch(){
     $('#filterToggle').setAttribute('aria-expanded',open?'true':'false');
   };
   FILTER_IDS.forEach(id=>{ $('#'+id).onchange=()=>{ updateFilterBadge(); go(); }; });
+  $('#fltSort').onchange=go;
   $('#fltClear').onclick=()=>{
     FILTER_IDS.forEach(id=>{$('#'+id).value='';});
     updateFilterBadge(); go();
@@ -782,13 +966,18 @@ async function doSearch(term){
     query=query.ilike('style','%'+c.like+'%');
     (c.exclude||[]).forEach(x=>{ query=query.not('style','ilike','%'+x+'%'); });
   }
-  const {data,error}=await query.order('box_code').limit(200);
+  const sortDef=SORTS[$('#fltSort')?.value]||SORTS.box;
+  const {data,error}=await query.order(sortDef.col,{ascending:sortDef.asc}).limit(searchLimit);
   if(error){res.innerHTML=`<div class="emptystate">⚠ ${esc(error.message)}</div>`;return;}
   if(!data.length){res.innerHTML=`<div class="emptystate"><div class="big">∅</div>No items match${term?' “'+esc(term)+'”':' these filters'}.</div>`;return;}
-  // group by box
-  const byBox={};
-  data.forEach(r=>{(byBox[r.box_code] ||= {zone:r.zone,status:r.status,rows:[]}).rows.push(r);});
-  res.innerHTML=Object.entries(byBox).map(([code,b])=>`
+  // group by box, preserving the sort order boxes first appear in
+  const byBox={}; const order=[];
+  data.forEach(r=>{
+    if(!byBox[r.box_code]){byBox[r.box_code]={zone:r.zone,status:r.status,rows:[]};order.push(r.box_code);}
+    byBox[r.box_code].rows.push(r);
+  });
+  const canLoadMore=data.length===searchLimit;
+  res.innerHTML=order.map(code=>{const b=byBox[code];return `
     <div class="resbox" style="margin-bottom:12px">
       <div class="hd" onclick="location.hash='#/box/${encodeURIComponent(code)}'">
         <span class="code">${esc(code)}</span>
@@ -804,8 +993,10 @@ async function doSearch(term){
           </div>
           <div class="qty">×${r.qty}</div>
         </div>`).join('')}
-    </div>`).join('');
+    </div>`;}).join('')
+    +(canLoadMore?'<button class="btn ghost" id="loadMoreBtn" style="width:100%">Load more</button>':'');
   staggerIn(res,'.resbox');
+  const lm=$('#loadMoreBtn'); if(lm)lm.onclick=()=>{ searchLimit+=200; doSearch(term); };
 }
 
 /* ===================================================== SHIPMENTS */
@@ -854,8 +1045,9 @@ async function viewShipments(){
     const bc=boxes?.length||0;
     const ok=await showConfirm({title:`Delete "${name}"?`,message:`This will permanently remove ${bc} box(es) and all items inside them.`,confirmLabel:'Delete shipment'});
     if(!ok)return;
-    if(bc>0)await client().from('boxes').delete().in('id',boxes.map(b=>b.id));
-    await client().from('shipments').delete().eq('id',id);
+    const {data:shipRow}=await client().from('shipments').select('*').eq('id',id).single();
+    const {error}=await deleteShipmentLogged(shipRow);
+    if(error)return toast('⚠ '+error.message);
     toast('Shipment deleted'); viewShipments();
   });
 }
@@ -939,9 +1131,51 @@ async function viewShipment(id){
     <div class="sec-label">Departments &amp; Boxes</div>
     ${deptGroupsHtml||''}
     ${unassignedHtml}
-    <button class="btn ghost sm" id="addDept" style="margin-top:12px">+ Add department</button>`;
+    <button class="btn ghost sm" id="addDept" style="margin-top:12px">+ Add department</button>
+    <div class="bulkbar" id="bulkBar">
+      <span class="mono" id="bulkCount">0 selected</span>
+      <select class="t sm" id="bulkDept" style="max-width:180px">
+        <option value="">— Unassigned —</option>
+        ${(depts||[]).map(d=>`<option value="${esc(d.code)}">${esc(d.code)} — ${esc(d.name)}</option>`).join('')}
+      </select>
+      <button class="btn ghost sm" id="bulkMove">Move</button>
+      <button class="btn danger sm" id="bulkDelete">Delete selected</button>
+      <button class="btn ghost sm" id="bulkClear">Cancel</button>
+    </div>`;
   staggerIn(app,'.dept-group');
   staggerIn(app,'.lcard',22,10);
+  function updateBulkBar(){
+    const n=app.querySelectorAll('.box-select:checked').length;
+    const bar=$('#bulkBar'); if(bar)bar.classList.toggle('show',n>0);
+    const cnt=$('#bulkCount'); if(cnt)cnt.textContent=n+' selected';
+  }
+  app.querySelectorAll('.box-select').forEach(cb=>cb.onchange=updateBulkBar);
+  $('#bulkClear').onclick=()=>{ app.querySelectorAll('.box-select:checked').forEach(cb=>cb.checked=false); updateBulkBar(); };
+  $('#bulkMove').onclick=async()=>{
+    const checked=[...app.querySelectorAll('.box-select:checked')].map(el=>el.dataset.boxId);
+    if(!checked.length)return;
+    const dept=$('#bulkDept').value;
+    const {error}=await client().from('boxes').update({department_code:dept||null}).in('id',checked);
+    if(error)return toast('⚠ '+error.message);
+    toast(`Moved ${checked.length} box(es)`); viewShipment(id);
+  };
+  $('#bulkDelete').onclick=async()=>{
+    const checked=[...app.querySelectorAll('.box-select:checked')].map(el=>el.dataset.boxId);
+    if(!checked.length)return;
+    const ok=await showConfirm({title:`Delete ${checked.length} box(es)?`,message:'This will permanently remove the selected boxes and all their items.',confirmLabel:'Delete boxes'});
+    if(!ok)return;
+    for(const boxId of checked){
+      const boxRow=(boxes||[]).find(b=>b.id===boxId);
+      const {data:itemRows}=await client().from('items').select('*').eq('box_id',boxId);
+      await logActivity('box',`Deleted box ${boxRow?.code||boxId} (${(itemRows||[]).length} item line(s))`,{
+        box:pick(boxRow||{id:boxId},COLS.boxes),
+        items:(itemRows||[]).map(i=>pick(i,COLS.items))
+      });
+    }
+    const {error}=await client().from('boxes').delete().in('id',checked);
+    if(error)return toast('⚠ '+error.message);
+    toast(`Deleted ${checked.length} box(es)`); viewShipment(id);
+  };
 
   /* ---- shipment ---- */
   $('#editShip').onclick=async()=>{
@@ -958,8 +1192,8 @@ async function viewShipment(id){
     const bc=(boxes||[]).length;
     const ok=await showConfirm({title:`Delete "${ship?.name}"?`,message:`This will permanently remove ${bc} box(es) and all items inside them.`,confirmLabel:'Delete shipment'});
     if(!ok)return;
-    if(bc>0)await client().from('boxes').delete().in('id',(boxes||[]).map(b=>b.id));
-    await client().from('shipments').delete().eq('id',id);
+    const {error}=await deleteShipmentLogged(ship);
+    if(error)return toast('⚠ '+error.message);
     toast('Shipment deleted'); location.hash='#/shipments';
   };
 
@@ -989,8 +1223,18 @@ async function viewShipment(id){
     const code=btn.dataset.code;
     const ok=await showConfirm({title:`Delete department ${code}?`,message:'Boxes in this department will move to Unassigned.',confirmLabel:'Delete department'});
     if(!ok)return;
+    const deptRow=(depts||[]).find(d=>d.id===btn.dataset.delDept);
     // department_code is a soft text reference (no DB-level FK), so boxes/items pointing
     // at it must be unlinked explicitly or they silently become invisible orphans.
+    const [{data:affectedBoxes},{data:affectedItems}]=await Promise.all([
+      client().from('boxes').select('id').eq('department_code',code),
+      client().from('items').select('id').eq('department_code',code)
+    ]);
+    await logActivity('department',`Deleted department ${code}${deptRow?' ('+deptRow.name+')':''}`,{
+      department:pick(deptRow||{code},COLS.departments),
+      boxIds:(affectedBoxes||[]).map(b=>b.id),
+      itemIds:(affectedItems||[]).map(i=>i.id)
+    });
     const [{error:e1},{error:e2}]=await Promise.all([
       client().from('boxes').update({department_code:null}).eq('department_code',code),
       client().from('items').update({department_code:null}).eq('department_code',code)
@@ -1015,14 +1259,15 @@ async function viewShipment(id){
     if(!code){toast('Pick a box');return;}
     let boxId;
     if(code==='__new__'){
+      const deptOpts=[{value:'',label:'— Unassigned —'},...(depts||[]).map(d=>({value:d.code,label:`${d.code} — ${d.name}`}))];
       const r2=await showDialog({title:'New box',fields:[
         {id:'code',label:'Box code',placeholder:'e.g. B-0001',required:true,mono:true},
         {id:'zone',label:'Location / zone'},
-        {id:'dept',label:'Department code',mono:true}
+        {id:'dept',label:'Department',type:'select',options:deptOpts}
       ],confirmLabel:'Create & assign'});
       if(!r2)return;
       code=r2.code.trim();
-      const {data:nb,error}=await client().from('boxes').insert({code,zone:r2.zone||null,shipment_id:id,department_code:r2.dept?r2.dept.toUpperCase():null}).select('id').single();
+      const {data:nb,error}=await client().from('boxes').insert({code,zone:r2.zone||null,shipment_id:id,department_code:r2.dept||null}).select('id').single();
       if(error)return toast('⚠ '+error.message); boxId=nb.id;
     }else{
       const {data:fb}=await client().from('boxes').select('id').eq('code',code).maybeSingle();
@@ -1037,27 +1282,36 @@ async function viewShipment(id){
   app.querySelectorAll('[data-edit-box]').forEach(btn=>btn.onclick=async e=>{
     e.stopPropagation();
     const bid=btn.dataset.editBox;
+    const deptOpts=[{value:'',label:'— Unassigned —'},...(depts||[]).map(d=>({value:d.code,label:`${d.code} — ${d.name}`}))];
     const r=await showDialog({title:'Edit box',fields:[
       {id:'code',label:'Box code',value:btn.dataset.code,required:true,mono:true},
       {id:'zone',label:'Location / zone',value:btn.dataset.zone,placeholder:'e.g. Aisle 3 / Shelf B'},
       {id:'status',label:'Status',type:'select',value:btn.dataset.status,options:[
         {value:'stored',label:'Stored'},{value:'opened',label:'Opened'},{value:'empty',label:'Empty'}]},
-      {id:'dept',label:'Department code',value:btn.dataset.dept,hint:'Leave blank to move to Unassigned',mono:true}
+      {id:'dept',label:'Department',type:'select',value:btn.dataset.dept,options:deptOpts}
     ],confirmLabel:'Save'});
     if(!r)return;
-    const {error}=await client().from('boxes').update({code:r.code.trim(),zone:r.zone||null,status:r.status||'stored',department_code:r.dept?r.dept.toUpperCase():null}).eq('id',bid);
+    const {error}=await client().from('boxes').update({code:r.code.trim(),zone:r.zone||null,status:r.status||'stored',department_code:r.dept||null}).eq('id',bid);
     if(error)return toast('⚠ '+error.message); toast('Box updated'); viewShipment(id);
   });
   app.querySelectorAll('[data-del-box]').forEach(btn=>btn.onclick=async e=>{
     e.stopPropagation();
     const ok=await showConfirm({title:`Delete box ${btn.dataset.code}?`,message:'This will permanently remove the box and all its items.',confirmLabel:'Delete box'});
     if(!ok)return;
-    const {error}=await client().from('boxes').delete().eq('id',btn.dataset.delBox);
+    const boxId=btn.dataset.delBox;
+    const boxRow=(boxes||[]).find(b=>b.id===boxId);
+    const {data:itemRows}=await client().from('items').select('*').eq('box_id',boxId);
+    await logActivity('box',`Deleted box ${btn.dataset.code} (${(itemRows||[]).length} item line(s))`,{
+      box:pick(boxRow||{id:boxId,code:btn.dataset.code},COLS.boxes),
+      items:(itemRows||[]).map(i=>pick(i,COLS.items))
+    });
+    const {error}=await client().from('boxes').delete().eq('id',boxId);
     if(error)return toast('⚠ '+error.message); toast('Box deleted'); viewShipment(id);
   });
 }
 function boxRowHtml(b){
   return `<div class="lcard" style="cursor:default;background:var(--panel)">
+    <input type="checkbox" class="box-select" data-box-id="${b.id}">
     <div style="flex:1;min-width:0;cursor:pointer" onclick="location.hash='#/box/${encodeURIComponent(b.code)}'">
       <div class="code">${esc(b.code)}</div>
       <div class="meta">${b.zone?'📍 '+esc(b.zone)+' · ':''}${b.items?.[0]?.count??0} item lines</div>
@@ -1148,6 +1402,10 @@ async function viewBox(code){
     const n=(items||[]).length;
     const ok=await showConfirm({title:`Delete box ${box.code}?`,message:`This will permanently remove the box and all ${n} item line(s) inside it.`,confirmLabel:'Delete box'});
     if(!ok)return;
+    await logActivity('box',`Deleted box ${box.code} (${n} item line(s))`,{
+      box:pick(box,COLS.boxes),
+      items:(items||[]).map(i=>pick(i,COLS.items))
+    });
     const {error}=await client().from('boxes').delete().eq('id',box.id);
     if(error)return toast('⚠ '+error.message);
     toast('Box '+box.code+' deleted');
@@ -1182,8 +1440,10 @@ function renderItems(box,items){
     const input=rowEl.querySelector('[data-qty]');
     const save=async v=>{
       const n=Math.max(0,parseInt(v||0,10));input.value=n;
-      await client().from('items').update({qty:n}).eq('id',id);
-      toast('Saved · '+n);
+      let error=null;
+      try{ ({error}=await client().from('items').update({qty:n}).eq('id',id)); }catch(e){ error=e; }
+      if(error){ queueWrite('qty',{id,qty:n}); toast('Offline — saved locally · '+n); }
+      else toast('Saved · '+n);
       rowEl.classList.remove('saved-flash'); void rowEl.offsetWidth; rowEl.classList.add('saved-flash');
       setTimeout(()=>rowEl.classList.remove('saved-flash'),550);
     };
@@ -1193,9 +1453,11 @@ function renderItems(box,items){
       const it=items.find(x=>x.id===id);
       const ok=await showConfirm({title:'Remove item?',message:`Remove "${it?it.style:'this item'}" from box ${box.code}?`,confirmLabel:'Remove',danger:true});
       if(!ok)return;
-      const {error}=await client().from('items').delete().eq('id',id);
-      if(error)return toast('⚠ '+error.message);
-      toast('Item removed');
+      if(it)await logActivity('item',`Removed "${it.style}" from box ${box.code}`,{item:pick(it,COLS.items)});
+      let error=null;
+      try{ ({error}=await client().from('items').delete().eq('id',id)); }catch(e){ error=e; }
+      if(error){ queueWrite('delete',{id}); toast('Offline — will remove when back online'); }
+      else toast('Item removed');
       collapseAndRemove(rowEl,()=>{
         const idx=items.findIndex(x=>x.id===id);
         if(idx>=0)items.splice(idx,1);
@@ -1264,13 +1526,16 @@ function openAddForm(box){
     const style=g('#f_name').value.trim();
     if(!style){toast('Item name is required');g('#f_name').focus();return;}
     const sku=g('#f_code').value.trim()||null;
-    // proactive duplicate check — catch it before the DB does
-    if(sku){
-      const {data:clash}=await client().from('item_search').select('box_code').eq('sku',sku).maybeSingle();
-      if(clash){
-        toast(`⚠ Item code ${sku} already exists in box ${clash.box_code}`);
-        g('#f_code').focus(); return;
-      }
+    // proactive duplicate check — catch it before the DB does; skipped when offline since
+    // it can't be verified anyway, and shouldn't block queuing the item for later
+    if(sku && navigator.onLine){
+      try{
+        const {data:clash}=await client().from('item_search').select('box_code').eq('sku',sku).maybeSingle();
+        if(clash){
+          toast(`⚠ Item code ${sku} already exists in box ${clash.box_code}`);
+          g('#f_code').focus(); return;
+        }
+      }catch(e){ /* best-effort only */ }
     }
     const rec={
       box_id:box.id, style, sku,
@@ -1282,9 +1547,10 @@ function openAddForm(box){
       qty:Math.max(0,parseInt(g('#f_qty').value||'1',10))
     };
     const btn=g('#f_add'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
-    const {error}=await client().from('items').insert(rec);
+    let error=null;
+    try{ ({error}=await client().from('items').insert(rec)); }catch(e){ error=e; }
     btn.disabled=false; btn.textContent='Add & next';
-    if(error){toast('⚠ '+error.message);return;}
+    if(error){ queueWrite('add',rec); toast('Offline — item queued, will add when back online'); }
     added++; g('#cnt').textContent=added+' added';
     recent.unshift(rec);
     const rc=g('#recent'); rc.style.display='block';
@@ -1359,8 +1625,14 @@ function viewImport(){
       </div>
       <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
     </div>
+    <div class="card pad" style="margin-bottom:14px">
+      <div class="sub" style="text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:6px">Export</div>
+      <p class="sub" style="margin:0 0 12px">Download every item currently in the system — box, location, department, shipment and all — as an Excel file.</p>
+      <button class="btn ghost" id="exportBtn">⬇ Export all items to Excel</button>
+    </div>
     <div id="importBody"></div>`;
   loadShipSel();
+  $('#exportBtn').onclick=exportInventory;
   $('#newShipBtn').onclick=async()=>{
     const r=await showDialog({title:'New shipment',fields:[
       {id:'name',label:'Shipment name',placeholder:'e.g. EX/1001/26 — Mar 2026',required:true},
@@ -1470,6 +1742,126 @@ async function runImport(){
     btn.innerHTML='✓ Done — open the shipment to box them';
     parsedRows=null;
   }catch(e){ toast('⚠ '+(e.message||e)); btn.disabled=false; btn.textContent='Retry import'; }
+}
+async function exportInventory(){
+  const btn=$('#exportBtn'); if(!btn)return;
+  const orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span> Exporting…';
+  try{
+    const {data,error}=await client().from('item_search').select('*').order('box_code');
+    if(error)throw error;
+    const rows=(data||[]).map(r=>({
+      'Box':r.box_code, 'Location':r.zone||'', 'Box status':r.status||'', 'Shipment':r.shipment_name||'',
+      'Style':r.style||'', 'SKU':r.sku||'', 'Brand':r.brand||'', 'Gender':r.gender||'',
+      'Department':r.department_code||'', 'Colour':r.color||'', 'Size':r.size||'', 'Qty':r.qty||0
+    }));
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Inventory');
+    XLSX.writeFile(wb,`ovs-inventory-${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast(`Exported ${rows.length} item line(s)`);
+  }catch(e){
+    toast('⚠ '+(e.message||e));
+  }finally{
+    btn.disabled=false; btn.innerHTML=orig;
+  }
+}
+
+/* ===================================================== DASHBOARD */
+async function viewDashboard(){
+  loading();
+  const [{data:boxes},{data:items},{data:depts},{data:recentActivity}]=await Promise.all([
+    client().from('boxes').select('id,zone,status,department_code'),
+    client().from('items').select('qty,department_code'),
+    client().from('departments').select('code,name'),
+    client().from('activity_log').select('*').order('created_at',{ascending:false}).limit(5)
+  ]);
+  const totalBoxes=(boxes||[]).length;
+  const totalPieces=(items||[]).reduce((a,i)=>a+(i.qty||0),0);
+  const noLocation=(boxes||[]).filter(b=>!b.zone).length;
+  const deptNameByCode={}; (depts||[]).forEach(d=>{ deptNameByCode[d.code]=d.name; });
+  const deptCounts={};
+  (items||[]).forEach(i=>{ if(i.department_code)deptCounts[i.department_code]=(deptCounts[i.department_code]||0)+(i.qty||0); });
+  const deptRows=Object.entries(deptCounts).sort((a,b)=>b[1]-a[1]);
+  const maxCount=deptRows.length?deptRows[0][1]:1;
+  app.innerHTML=`
+    <h1 class="page">Dashboard</h1>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:20px">
+      <div class="card pad stat"><div class="stat-n">${totalBoxes}</div><div class="stat-l">Boxes</div></div>
+      <div class="card pad stat"><div class="stat-n">${totalPieces}</div><div class="stat-l">Pieces</div></div>
+      <div class="card pad stat"><div class="stat-n">${noLocation}</div><div class="stat-l">No location set</div></div>
+      <div class="card pad stat"><div class="stat-n">${(depts||[]).length}</div><div class="stat-l">Departments</div></div>
+    </div>
+    <div class="sec-label" style="margin-top:0">Pieces by department</div>
+    <div class="card pad" style="margin-bottom:20px">
+      ${deptRows.length?deptRows.map(([code,count])=>`
+        <div class="dept-bar-row">
+          <div class="dept-bar-label"><span class="mono">${esc(code)}</span> ${esc(deptNameByCode[code]||'')}</div>
+          <div class="bar"><i style="width:${Math.round(count/maxCount*100)}%"></i></div>
+          <div class="dept-bar-count mono">${count}</div>
+        </div>`).join(''):'<div class="sub">No department data yet.</div>'}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div class="sec-label" style="margin:0">Recent activity</div>
+      <a class="sub" href="#/activity" style="margin-left:auto">View all →</a>
+    </div>
+    <div class="card divide">
+      ${(recentActivity&&recentActivity.length)?recentActivity.map(a=>`
+        <div class="lcard" style="cursor:default"><div style="flex:1;min-width:0">
+          <div style="font-weight:600">${esc(a.summary)}</div>
+          <div class="meta">${esc(new Date(a.created_at).toLocaleString())}</div>
+        </div></div>`).join(''):'<div class="emptystate" style="padding:24px 16px">No activity yet.</div>'}
+    </div>`;
+  staggerIn(app,'.stat, .dept-bar-row, .lcard');
+}
+
+/* ===================================================== ACTIVITY (undo for deletes) */
+async function viewActivity(){
+  loading();
+  const {data,error}=await client().from('activity_log').select('*').order('created_at',{ascending:false}).limit(50);
+  if(error)return errView(error);
+  app.innerHTML=`
+    <h1 class="page">Activity</h1>
+    <p class="sub" style="margin:-8px 2px 14px">Recent deletions. Restore brings back exactly what was removed.</p>
+    ${data.length?`<div class="card divide">${data.map(a=>activityRowHtml(a)).join('')}</div>`
+      :'<div class="emptystate"><div class="big">🕊</div>Nothing deleted yet.</div>'}`;
+  staggerIn(app,'.lcard');
+  app.querySelectorAll('[data-restore]').forEach(btn=>btn.onclick=()=>restoreActivity(btn.dataset.restore));
+}
+function activityRowHtml(a){
+  const when=new Date(a.created_at).toLocaleString();
+  return `<div class="lcard" style="cursor:default">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:600">${esc(a.summary)}</div>
+      <div class="meta">${esc(when)}${a.restored_at?' · <span style="color:var(--ok)">restored</span>':''}</div>
+    </div>
+    ${a.restored_at?'':`<button class="btn ghost sm" data-restore="${a.id}" style="flex:none">↺ Restore</button>`}
+  </div>`;
+}
+async function restoreActivity(logId){
+  const {data:log,error}=await client().from('activity_log').select('*').eq('id',logId).single();
+  if(error||!log)return toast('⚠ Could not load activity entry');
+  if(log.restored_at)return toast('Already restored');
+  const s=log.snapshot;
+  let err=null;
+  if(log.entity_type==='item'){
+    ({error:err}=await client().from('items').insert(pick(s.item,COLS.items)));
+  }else if(log.entity_type==='box'){
+    ({error:err}=await client().from('boxes').insert(pick(s.box,COLS.boxes)));
+    if(!err && (s.items||[]).length) ({error:err}=await client().from('items').insert(s.items.map(i=>pick(i,COLS.items))));
+  }else if(log.entity_type==='shipment'){
+    ({error:err}=await client().from('shipments').insert(pick(s.shipment,COLS.shipments)));
+    if(!err && (s.departments||[]).length) ({error:err}=await client().from('departments').insert(s.departments.map(d=>pick(d,COLS.departments))));
+    if(!err && (s.boxes||[]).length) ({error:err}=await client().from('boxes').insert(s.boxes.map(b=>pick(b,COLS.boxes))));
+    if(!err && (s.items||[]).length) ({error:err}=await client().from('items').insert(s.items.map(i=>pick(i,COLS.items))));
+  }else if(log.entity_type==='department'){
+    ({error:err}=await client().from('departments').insert(pick(s.department,COLS.departments)));
+    if(!err){
+      if((s.boxIds||[]).length)await client().from('boxes').update({department_code:s.department.code}).in('id',s.boxIds);
+      if((s.itemIds||[]).length)await client().from('items').update({department_code:s.department.code}).in('id',s.itemIds);
+    }
+  }
+  if(err)return toast('⚠ Restore failed: '+err.message);
+  await client().from('activity_log').update({restored_at:new Date().toISOString()}).eq('id',logId);
+  toast('Restored'); viewActivity();
 }
 
 /* ===================================================== SETTINGS */
