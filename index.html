@@ -10,11 +10,17 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f5f5f3; --panel:#ffffff; --ink:#001526; --muted:#5b6b78;
-    --accent:#fbba07; --accent-ink:#001526; --line:rgba(0,21,38,.12);
-    --line-strong:rgba(0,21,38,.26); --ok:#2f7d32; --warn:#b4690e; --bad:#b3261e;
-    --shadow:0 1px 0 rgba(0,21,38,.05), 0 8px 24px -16px rgba(0,21,38,.45);
-    --r:10px;
+    --navy:#001526; --bg:#0b1422; --panel:rgba(255,255,255,.07); --panel-strong:rgba(255,255,255,.12);
+    --ink:#eef4f9; --muted:#93a7ba;
+    --accent:#fbba07; --accent-2:#f59e0b; --accent-ink:#1a1300;
+    --glow-1:rgba(251,186,7,.32); --glow-2:rgba(56,189,248,.24); --glow-3:rgba(167,139,250,.20);
+    --line:rgba(255,255,255,.14); --line-strong:rgba(255,255,255,.26);
+    --ok:#34d399; --ok-bg:rgba(52,211,153,.16);
+    --warn:#fbbf24; --warn-bg:rgba(251,191,36,.16);
+    --bad:#f87171; --bad-bg:rgba(248,113,113,.16);
+    --shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 10px 34px -16px rgba(0,0,0,.65);
+    --blur:20px;
+    --r:14px;
     --ease-out:cubic-bezier(0.23,1,0.32,1);
     --ease-drawer:cubic-bezier(0.32,0.72,0,1);
   }
@@ -22,10 +28,18 @@
   html,body{margin:0;padding:0}
   body{
     font-family:"IBM Plex Sans",system-ui,sans-serif;color:var(--ink);
-    background:var(--bg);
-    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-    background-size:28px 28px;background-position:-1px -1px;
+    background:#070d18;
     min-height:100vh;-webkit-font-smoothing:antialiased;
+    position:relative;isolation:isolate;
+  }
+  body::before{
+    content:'';position:fixed;inset:-15%;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(38% 32% at 14% 6%, var(--glow-1), transparent 70%),
+      radial-gradient(34% 30% at 108% 18%, var(--glow-2), transparent 70%),
+      radial-gradient(44% 36% at 46% 118%, var(--glow-3), transparent 70%),
+      linear-gradient(180deg,#070d18,#0a1424 55%,#0d1830);
+    filter:blur(70px) saturate(140%);
   }
   .mono{font-family:"IBM Plex Mono",monospace}
   .cond{font-family:"IBM Plex Sans Condensed",sans-serif}
@@ -34,45 +48,48 @@
 
   /* shell */
   header.top{
-    position:sticky;top:0;z-index:30;background:var(--ink);color:#fff;
+    position:sticky;top:0;z-index:30;background:rgba(6,12,20,.6);color:#fff;
+    backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);
+    border-bottom:1px solid rgba(255,255,255,.08);
     display:flex;align-items:center;gap:12px;padding:12px 16px;
     padding-top:max(12px,env(safe-area-inset-top));
   }
   .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;font-size:20px;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
-  .ovsmark{display:inline-flex;align-items:center;background:var(--accent);color:var(--ink);font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em;padding:3px 9px 4px;border-radius:6px;line-height:1}
+  .ovsmark{display:inline-flex;align-items:center;background:linear-gradient(135deg,#ffd873,var(--accent) 55%,var(--accent-2));color:var(--accent-ink);font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em;padding:3px 9px 4px;border-radius:6px;line-height:1;box-shadow:0 0 18px rgba(251,186,7,.45)}
   .brand small{font-family:"IBM Plex Mono";font-weight:500;font-size:10px;color:#8fa6b3;letter-spacing:.18em;text-transform:uppercase}
   header.top .grow{flex:1}
   .iconbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#fff;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
   .iconbtn:hover{background:rgba(255,255,255,.2)}
 
-  nav.tabs{position:sticky;top:0;z-index:20;display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
-  nav.tabs a{padding:13px 14px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap}
-  nav.tabs a.active{color:var(--ink);border-color:var(--accent)}
+  nav.tabs{position:sticky;top:0;z-index:20;display:flex;gap:2px;background:rgba(255,255,255,.045);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+  nav.tabs a{padding:13px 14px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color 140ms ease,border-color 140ms ease}
+  nav.tabs a.active{color:var(--ink);border-color:var(--accent);text-shadow:0 0 16px rgba(251,186,7,.4)}
 
   main{max-width:920px;margin:0 auto;padding:18px 16px 90px}
 
   /* generic bits */
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .card{background:var(--panel);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
   .pad{padding:16px}
   h1.page{font-family:"IBM Plex Sans Condensed";font-weight:700;font-size:26px;margin:2px 0 14px;letter-spacing:.01em}
   .sub{color:var(--muted);font-size:13px}
   label.f{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 5px}
-  input.t,select.t,textarea.t{width:100%;background:#fff;border:1px solid var(--line-strong);border-radius:8px;padding:11px 12px;font-size:15px}
-  input.t:focus,select.t:focus,textarea.t:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+  input.t,select.t,textarea.t{width:100%;background:rgba(255,255,255,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line-strong);border-radius:8px;padding:11px 12px;font-size:15px;color:var(--ink)}
+  input.t::placeholder,select.t::placeholder,textarea.t::placeholder{color:var(--muted)}
+  input.t:focus,select.t:focus,textarea.t:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent;box-shadow:0 0 0 5px rgba(251,186,7,.16)}
   .row{display:flex;gap:10px;flex-wrap:wrap}
   .row>*{flex:1;min-width:0}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:#fff;border:none;border-radius:8px;padding:12px 16px;font-weight:600;font-size:14px;cursor:pointer;transition:background 140ms ease,filter 140ms ease,transform 130ms var(--ease-out)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line-strong);border-radius:8px;padding:12px 16px;font-weight:600;font-size:14px;cursor:pointer;transition:background 140ms ease,filter 140ms ease,transform 130ms var(--ease-out),box-shadow 140ms ease}
   .btn:active{transform:scale(.97)}
   .btn:disabled{opacity:.6;transform:none}
-  .btn:hover{background:#000}
-  .btn.acc{background:var(--accent);color:var(--accent-ink)}
-  .btn.acc:hover{filter:brightness(.95)}
+  .btn:hover{background:rgba(255,255,255,.14)}
+  .btn.acc{background:linear-gradient(135deg,#ffd873,var(--accent) 55%,var(--accent-2));color:var(--accent-ink);border-color:transparent;box-shadow:0 8px 24px -10px rgba(251,186,7,.65),0 0 0 1px rgba(255,255,255,.12) inset}
+  .btn.acc:hover{filter:brightness(1.05);box-shadow:0 10px 30px -8px rgba(251,186,7,.8),0 0 0 1px rgba(255,255,255,.16) inset}
   .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
-  .btn.ghost:hover{background:#fff}
+  .btn.ghost:hover{background:rgba(255,255,255,.08)}
   .btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bad);transition:background 140ms ease,color 140ms ease,transform 130ms var(--ease-out)}
-  .btn.danger:hover{background:var(--bad);color:#fff}
-  .del{border:1px solid var(--line-strong);background:#fff;color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:15px;cursor:pointer;flex:none;transition:border-color 140ms ease,color 140ms ease,transform 130ms var(--ease-out)}
-  .del:hover{border-color:var(--bad);color:var(--bad);background:#fff}
+  .btn.danger:hover{background:var(--bad);color:#1a0505}
+  .del{border:1px solid var(--line-strong);background:rgba(255,255,255,.06);color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:15px;cursor:pointer;flex:none;transition:border-color 140ms ease,color 140ms ease,transform 130ms var(--ease-out)}
+  .del:hover{border-color:var(--bad);color:var(--bad);background:rgba(248,113,113,.1)}
   .del:active{transform:scale(.94)}
   .del.sm{width:30px;height:30px;font-size:13px;border-radius:7px}
   .iconbtn{transition:background 140ms ease,transform 130ms var(--ease-out)}
@@ -80,34 +97,54 @@
   .stepper button{transition:background 120ms ease,transform 110ms var(--ease-out)}
   .stepper button:active{transform:scale(.9)}
   .btn.sm{padding:7px 11px;font-size:13px;border-radius:7px}
-  .pill{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono";font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);background:#fff}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono";font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);background:rgba(255,255,255,.06)}
   .tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
-  .tag.stored{background:#e9f3ea;color:var(--ok)} .tag.opened{background:#fbf0df;color:var(--warn)} .tag.empty{background:#f6e6e5;color:var(--bad)}
-  .empty{text-align:center;color:var(--muted);padding:48px 16px}
-  .empty .big{font-size:40px;margin-bottom:8px}
+  .tag.stored{background:var(--ok-bg);color:var(--ok)} .tag.opened{background:var(--warn-bg);color:var(--warn)} .tag.empty{background:var(--bad-bg);color:var(--bad)}
+  .emptystate{text-align:center;color:var(--muted);padding:48px 16px}
+  .emptystate .big{font-size:40px;margin-bottom:8px}
   .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;vertical-align:-3px}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;z-index:80;box-shadow:0 10px 30px -10px #000;opacity:0;pointer-events:none;transition:opacity 200ms ease-out,transform 240ms var(--ease-out)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);background:rgba(13,20,32,.9);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));border:1px solid rgba(255,255,255,.12);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;z-index:80;box-shadow:0 10px 30px -10px #000;opacity:0;pointer-events:none;transition:opacity 200ms ease-out,transform 240ms var(--ease-out)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .grid{display:grid;gap:12px}
   @media(min-width:620px){.grid.two{grid-template-columns:1fr 1fr}}
+  .grid.tiles{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))}
+
+  /* quick nav (search landing) */
+  .qsection{margin-top:26px}
+  .qtile{display:flex;flex-direction:column;gap:7px;background:var(--panel);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;text-decoration:none;color:inherit;box-shadow:var(--shadow);transition:transform 130ms var(--ease-out),border-color 140ms ease,box-shadow 140ms ease}
+  .qtile:hover{border-color:rgba(251,186,7,.5);transform:translateY(-2px);box-shadow:var(--shadow),0 0 0 1px rgba(251,186,7,.18)}
+  .qtile:active{transform:translateY(0) scale(.97)}
+  .qtile-code{font-family:"IBM Plex Mono";font-weight:700;font-size:15px}
+  .qtile-meta{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .deptchip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.06);border:1px solid var(--line-strong);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:background 140ms ease,transform 130ms var(--ease-out),border-color 140ms ease}
+  .deptchip:hover{border-color:var(--accent);background:rgba(251,186,7,.12)}
+  .deptchip:active{transform:scale(.95)}
+  .deptchip .dc-name{color:var(--muted);font-weight:500}
+  .qskel{background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.16) 37%,rgba(255,255,255,.05) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;border-radius:var(--r)}
+  @keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+  @keyframes fadeInUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  #app.fade-in{animation:fadeInUp 200ms var(--ease-out)}
 
   /* search */
-  .searchbar{display:flex;gap:0;align-items:stretch;border:2px solid var(--ink);border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--shadow)}
-  .searchbar input{flex:1;border:none;padding:16px 16px;font-size:17px;font-weight:500}
+  .searchbar{display:flex;gap:0;align-items:stretch;border:1px solid var(--line-strong);border-radius:14px;overflow:hidden;background:var(--panel);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);box-shadow:var(--shadow);transition:border-color 160ms ease,box-shadow 160ms ease}
+  .searchbar:focus-within{border-color:rgba(251,186,7,.55);box-shadow:var(--shadow),0 0 0 4px rgba(251,186,7,.16)}
+  .searchbar input{flex:1;border:none;padding:16px 16px;font-size:17px;font-weight:500;background:transparent;color:var(--ink)}
+  .searchbar input::placeholder{color:var(--muted)}
   .searchbar input:focus{outline:none}
-  .searchbar button{border:none;background:var(--accent);color:var(--accent-ink);padding:0 20px;font-weight:700;cursor:pointer;font-size:15px}
-  .resbox{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel);box-shadow:var(--shadow)}
-  .resbox .hd{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--ink);color:#fff;cursor:pointer}
+  .searchbar button{border:none;background:linear-gradient(135deg,#ffd873,var(--accent) 55%,var(--accent-2));color:var(--accent-ink);padding:0 20px;font-weight:700;cursor:pointer;font-size:15px}
+  .resbox{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel);backdrop-filter:blur(var(--blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--blur)) saturate(160%);box-shadow:var(--shadow)}
+  .resbox .hd{display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(135deg,var(--navy),#0a1e33);color:#fff;cursor:pointer}
   .resbox .hd .code{font-family:"IBM Plex Mono";font-weight:700;font-size:16px}
   .resbox .hd .zone{font-size:12px;color:#9fb4c0}
   .resrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid var(--line)}
   .resrow .qty{margin-left:auto;font-family:"IBM Plex Mono";font-weight:700}
-  .thumb{width:42px;height:42px;border-radius:7px;background:#e7e1d5 center/cover;flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px}
+  .thumb{width:42px;height:42px;border-radius:7px;background:rgba(255,255,255,.08);border:1px solid var(--line);background-position:center;background-size:cover;flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px}
 
   /* list cards */
-  .lcard{display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none}
-  .lcard:hover{background:#fff}
+  .lcard{display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none;transition:background 140ms ease}
+  .lcard:hover{background:rgba(255,255,255,.06)}
   .lcard .code{font-family:"IBM Plex Mono";font-weight:700;font-size:17px}
   .lcard .meta{color:var(--muted);font-size:13px;margin-top:2px}
   .lcard .chev{margin-left:auto;color:var(--muted);font-size:20px}
@@ -118,10 +155,10 @@
   .qrwrap{text-align:center}
   .qrwrap img{width:128px;height:128px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px}
   .itemrow{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;padding:12px 0}
-  .stepper{display:inline-flex;align-items:center;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:#fff}
-  .stepper button{border:none;background:#fff;width:36px;height:36px;font-size:18px;font-weight:700;cursor:pointer}
-  .stepper button:hover{background:var(--bg)}
-  .stepper input{width:54px;border:none;border-left:1px solid var(--line);border-right:1px solid var(--line);text-align:center;font-family:"IBM Plex Mono";font-weight:700;height:36px}
+  .stepper{display:inline-flex;align-items:center;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:rgba(255,255,255,.06)}
+  .stepper button{border:none;background:transparent;color:var(--ink);width:36px;height:36px;font-size:18px;font-weight:700;cursor:pointer}
+  .stepper button:hover{background:rgba(255,255,255,.1)}
+  .stepper input{width:54px;border:none;border-left:1px solid var(--line);border-right:1px solid var(--line);background:transparent;color:var(--ink);text-align:center;font-family:"IBM Plex Mono";font-weight:700;height:36px}
   .stepper input:focus{outline:none}
 
   .dmodal .sheet{max-width:440px}
@@ -132,10 +169,10 @@
   .dfield:last-child{margin-bottom:0}
 
   /* add-item modal */
-  .modal{position:fixed;inset:0;z-index:60;background:rgba(20,16,12,.5);display:flex;align-items:flex-end;justify-content:center;padding:0;opacity:0;transition:opacity 220ms ease-out}
+  .modal{position:fixed;inset:0;z-index:60;background:rgba(4,8,14,.68);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;padding:0;opacity:0;transition:opacity 220ms ease-out}
   .modal.open{opacity:1}
   @media(min-width:620px){.modal{align-items:center;padding:20px}}
-  .sheet{background:var(--panel);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;box-shadow:0 -10px 40px -10px rgba(0,0,0,.4);transform:translateY(16px) scale(.985);opacity:0;transition:transform 360ms var(--ease-drawer),opacity 220ms ease-out}
+  .sheet{background:rgba(13,20,32,.88);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid rgba(255,255,255,.1);color:var(--ink);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;box-shadow:0 -10px 50px -10px rgba(0,0,0,.6);transform:translateY(16px) scale(.985);opacity:0;transition:transform 360ms var(--ease-drawer),opacity 220ms ease-out}
   .modal.open .sheet{transform:none;opacity:1}
   @media(max-width:619px){
     .sheet{transform:translateY(100%);opacity:1;transition:transform 380ms var(--ease-drawer)}
@@ -147,9 +184,11 @@
     .sheet{transform:none}
     .btn:active,.del:active,.iconbtn:active,.stepper button:active{transform:none}
     .toast,.toast.show{transform:translateX(-50%);transition:opacity 180ms ease}
+    #app.fade-in,.qskel{animation:none}
+    .qtile:hover{transform:none}
   }
   @media(min-width:620px){.sheet{border-radius:16px}}
-  .sheet .shd{position:sticky;top:0;background:var(--ink);color:#fff;display:flex;align-items:center;gap:10px;padding:14px 16px}
+  .sheet .shd{position:sticky;top:0;background:linear-gradient(135deg,var(--navy),#0a1e33);color:#fff;display:flex;align-items:center;gap:10px;padding:14px 16px}
   .sheet .shd .code{font-family:"IBM Plex Mono";font-weight:700}
   .sheet .shd .count{margin-left:auto;font-family:"IBM Plex Mono";font-size:12px;background:var(--accent);color:var(--accent-ink);padding:2px 9px;border-radius:999px;font-weight:700}
   .sheet .sbody{padding:16px}
@@ -159,13 +198,13 @@
   .recent{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;max-height:140px;overflow:auto}
   .recent .r{display:flex;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)}
   .recent .r .mono{color:var(--muted)}
-  .sheet .sfoot{position:sticky;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding:12px 16px;display:flex;gap:10px}
+  .sheet .sfoot{position:sticky;bottom:0;background:rgba(10,16,26,.92);border-top:1px solid var(--line);padding:12px 16px;display:flex;gap:10px}
   .sheet .sfoot .btn{flex:1}
 
   /* departments */
   .sec-label{font-family:"IBM Plex Sans Condensed";font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:18px 0 10px}
   .dept-group{margin-bottom:12px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line-strong);box-shadow:var(--shadow)}
-  .dept-group-hd{background:var(--ink);color:#fff;display:flex;align-items:center;gap:8px;padding:11px 14px;flex-wrap:wrap}
+  .dept-group-hd{background:linear-gradient(135deg,var(--navy),#0a1e33);color:#fff;display:flex;align-items:center;gap:8px;padding:11px 14px;flex-wrap:wrap}
   .dg-code{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;letter-spacing:.04em}
   .dg-name{font-size:13px;color:#9fb4c0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dcnt{font-family:"IBM Plex Mono";font-size:11px;font-weight:700;background:var(--accent);color:var(--accent-ink);padding:2px 8px;border-radius:999px;flex:none}
@@ -177,17 +216,18 @@
   .dept-empty{padding:14px 16px;font-size:13px;color:var(--muted);background:var(--panel)}
 
   /* import */
-  .drop{border:2px dashed var(--line-strong);border-radius:12px;padding:34px 18px;text-align:center;background:var(--panel);cursor:pointer}
-  .drop:hover{border-color:var(--accent);background:#fff}
+  .drop{border:2px dashed var(--line-strong);border-radius:12px;padding:34px 18px;text-align:center;background:var(--panel);cursor:pointer;transition:border-color 140ms ease,background 140ms ease}
+  .drop:hover{border-color:var(--accent);background:rgba(251,186,7,.08)}
   table.prev{width:100%;border-collapse:collapse;font-size:13px}
   table.prev th,table.prev td{border:1px solid var(--line);padding:6px 9px;text-align:left}
   table.prev th{background:var(--bg);font-family:"IBM Plex Mono";font-size:11px;text-transform:uppercase}
   .bar{height:10px;background:var(--bg);border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
-  .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0;transition:width .2s;box-shadow:0 0 12px rgba(251,186,7,.6)}
 
   /* print label */
   @media print{
-    body{background:#fff!important}
+    body{background:#fff!important;color:#001526!important}
+    body::before{display:none!important}
     header.top,nav.tabs,.noprint{display:none!important}
     main{padding:0;max-width:none}
     .label-sheet{box-shadow:none!important;border:none!important}
@@ -199,14 +239,14 @@
   .label-sheet ul{margin:8px 0 0;padding-left:18px;font-size:13px}
 
   /* ---- boot splash ---- */
-  #ovs-splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+  #ovs-splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#070d18}
   .ovs-splash-lockup{text-align:center}
   .ovs-splash-word{display:flex;justify-content:center;line-height:.9}
-  .ovs-splash-word span{display:inline-block;font-family:"IBM Plex Sans Condensed",sans-serif;font-size:clamp(64px,16vw,108px);font-weight:700;letter-spacing:-.02em;color:var(--ink);opacity:0}
-  .ovs-splash-rule{width:54px;height:2px;background:var(--accent);margin:20px auto 0;transform:scaleX(0)}
+  .ovs-splash-word span{display:inline-block;font-family:"IBM Plex Sans Condensed",sans-serif;font-size:clamp(64px,16vw,108px);font-weight:700;letter-spacing:-.02em;color:var(--ink);opacity:0;text-shadow:0 0 40px rgba(251,186,7,.25)}
+  .ovs-splash-rule{width:54px;height:2px;background:var(--accent);margin:20px auto 0;transform:scaleX(0);box-shadow:0 0 12px rgba(251,186,7,.6)}
   .ovs-splash-tag{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;letter-spacing:.4em;color:var(--muted);margin-top:18px;padding-left:.4em;opacity:0}
   .ovs-splash-loader{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:13px}
-  .ovs-splash-spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(0,21,38,.12);border-top-color:var(--accent)}
+  .ovs-splash-spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:var(--accent)}
   .ovs-splash-loading{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
   @keyframes ovsSplashL{0%{opacity:0;transform:translateX(-70px)}70%{opacity:1;transform:translateX(4px)}100%{opacity:1;transform:translateX(0)}}
   @keyframes ovsSplashR{0%{opacity:0;transform:translateX(70px)}70%{opacity:1;transform:translateX(-4px)}100%{opacity:1;transform:translateX(0)}}
@@ -268,7 +308,7 @@
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm';
+import * as XLSX from 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm';
 import QRCode from 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm';
 
 /* ---------- config (baked-in defaults; override in Settings) ---------- */
@@ -296,8 +336,11 @@ const $ = (s,r=document)=>r.querySelector(s);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400);}
-function loading(){app.innerHTML='<div class="empty"><div class="big">⏳</div>Loading…</div>';}
+function loading(){app.innerHTML='<div class="emptystate"><div class="big">⏳</div>Loading…</div>';}
+new MutationObserver(()=>{app.classList.remove('fade-in');void app.offsetWidth;app.classList.add('fade-in');}).observe(app,{childList:true});
 const baseUrl = ()=> location.origin+location.pathname;
+// Base used for QR codes. Prefers the saved public URL; falls back to the
+// current address only if it's a real http(s) origin (not file:// or a sandbox).
 function appBase(){
   if(CFG.pubUrl) return CFG.pubUrl.replace(/\/+$/,'')+'/';
   const o=location.origin;
@@ -319,6 +362,8 @@ function _dlgClose(el, val, resolve){
   setTimeout(()=>el.remove(),200);
   resolve(val);
 }
+// showDialog({title, fields:[{id,label,type,placeholder,value,required,hint,options,mono}], confirmLabel, danger})
+// returns Promise<object|null>
 function showDialog({title,fields=[],confirmLabel='Save',danger=false}){
   return new Promise(resolve=>{
     const body=fields.map(f=>`
@@ -356,6 +401,8 @@ function showDialog({title,fields=[],confirmLabel='Save',danger=false}){
     setTimeout(()=>{const f=ov.querySelector('input,select');if(f)f.focus();},60);
   });
 }
+// showConfirm({title, message, confirmLabel, danger})
+// returns Promise<boolean>
 function showConfirm({title,message='',confirmLabel='Delete',danger=true}){
   return new Promise(resolve=>{
     const ov=_dlgOverlay(`
@@ -382,6 +429,7 @@ function showConfirm({title,message='',confirmLabel='Delete',danger=true}){
 /* ---------- router ---------- */
 window.addEventListener('hashchange', route);
 window.addEventListener('load', ()=>{
+  // QR deep link: ?box=CODE  → open box
   const p=new URLSearchParams(location.search);
   if(p.get('box')){ location.replace(baseUrl()+'#/box/'+encodeURIComponent(p.get('box'))); return; }
   route();
@@ -415,24 +463,68 @@ function viewSearch(){
       <button id="qbtn">Search</button>
     </div>
     <p class="sub" style="margin:10px 2px">Type any part of a name, SKU or colour. Results show which box and where it is.</p>
-    <div id="res"></div>`;
+    <div id="res"></div>
+    <div id="quicknav"></div>`;
   const q=$('#q'); q.focus();
-  const go=()=>doSearch(q.value.trim());
+  const go=()=>{
+    const term=q.value.trim();
+    doSearch(term);
+    toggleQuicknav(!term);
+  };
   $('#qbtn').onclick=go;
   q.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
   q.addEventListener('input',()=>{clearTimeout(searchT);searchT=setTimeout(go,280);});
+  loadQuicknav();
+}
+function toggleQuicknav(show){
+  const el=$('#quicknav'); if(el)el.style.display=show?'':'none';
+}
+async function loadQuicknav(){
+  const wrap=$('#quicknav'); if(!wrap)return;
+  wrap.innerHTML=`
+    <div class="qsection"><div class="sec-label" style="margin-top:0">Recent boxes</div>
+      <div class="grid tiles">${Array(4).fill('<div class="qskel" style="height:76px"></div>').join('')}</div></div>`;
+  const [{data:boxes},{data:depts}]=await Promise.all([
+    client().from('boxes').select('code,zone,status,created_at').order('created_at',{ascending:false}).limit(8),
+    client().from('departments').select('code,name').order('code').limit(12)
+  ]);
+  const wrap2=$('#quicknav'); if(!wrap2)return;
+  wrap2.innerHTML=`
+    <div class="qsection">
+      <div class="sec-label" style="margin-top:0">Recent boxes</div>
+      ${boxes&&boxes.length?`<div class="grid tiles">${boxes.map(b=>`
+        <a class="qtile" href="#/box/${encodeURIComponent(b.code)}">
+          <div class="qtile-code">${esc(b.code)}</div>
+          <div class="qtile-meta">${b.zone?'📍 '+esc(b.zone):'no location'}</div>
+          <span class="tag ${b.status}">${esc(b.status)}</span>
+        </a>`).join('')}</div>`
+        :`<div class="emptystate" style="padding:28px 16px"><div class="big">📦</div>No boxes yet — create a shipment to get started.</div>`}
+    </div>
+    ${depts&&depts.length?`<div class="qsection">
+      <div class="sec-label">Departments</div>
+      <div class="chips">${depts.map(d=>`
+        <button class="deptchip" data-dept="${esc(d.code)}"><span class="mono">${esc(d.code)}</span><span class="dc-name">${esc(d.name)}</span></button>`).join('')}</div>
+    </div>`:''}`;
+  wrap2.querySelectorAll('[data-dept]').forEach(btn=>btn.onclick=()=>{
+    const q=$('#q'); if(!q)return;
+    q.value=btn.dataset.dept;
+    doSearch(btn.dataset.dept);
+    toggleQuicknav(false);
+    q.focus();
+  });
 }
 async function doSearch(term){
   const res=$('#res'); if(!res)return;
   if(!term){res.innerHTML='';return;}
-  res.innerHTML='<div class="empty">Searching…</div>';
+  res.innerHTML='<div class="emptystate">Searching…</div>';
   const t=term.replace(/[,()%]/g,' ').trim();
   const {data,error}=await client().from('item_search')
     .select('*')
     .or(`style.ilike.%${t}%,sku.ilike.%${t}%,color.ilike.%${t}%,brand.ilike.%${t}%,department_code.ilike.%${t}%`)
     .order('box_code').limit(200);
-  if(error){res.innerHTML=`<div class="empty">⚠ ${esc(error.message)}</div>`;return;}
-  if(!data.length){res.innerHTML='<div class="empty"><div class="big">∅</div>No items match "'+esc(term)+'".</div>';return;}
+  if(error){res.innerHTML=`<div class="emptystate">⚠ ${esc(error.message)}</div>`;return;}
+  if(!data.length){res.innerHTML='<div class="emptystate"><div class="big">∅</div>No items match “'+esc(term)+'”.</div>';return;}
+  // group by box
   const byBox={};
   data.forEach(r=>{(byBox[r.box_code] ||= {zone:r.zone,status:r.status,rows:[]}).rows.push(r);});
   res.innerHTML=Object.entries(byBox).map(([code,b])=>`
@@ -475,8 +567,9 @@ async function viewShipments(){
           <button class="del sm" data-del-ship="${s.id}" data-name="${esc(s.name)}" title="Delete shipment">🗑</button>
         </div>
       </div>`).join('')}</div>`
-    :'<div class="empty"><div class="big">📦</div>No shipments yet. Create one, then import or add boxes.</div>'}`;
+    :'<div class="emptystate"><div class="big">📦</div>No shipments yet. Create one, then import or add boxes.</div>'}`;
   $('#newShip').onclick=newShipment;
+  // edit handlers
   app.querySelectorAll('[data-edit-ship]').forEach(btn=>btn.onclick=async e=>{
     e.stopPropagation();
     const id=btn.dataset.editShip;
@@ -490,6 +583,7 @@ async function viewShipments(){
     if(error)return toast('⚠ '+error.message);
     toast('Shipment updated'); viewShipments();
   });
+  // delete handlers
   app.querySelectorAll('[data-del-ship]').forEach(btn=>btn.onclick=async e=>{
     e.stopPropagation();
     const id=btn.dataset.delShip, name=btn.dataset.name;
@@ -513,20 +607,24 @@ async function newShipment(){
   if(error)return toast('⚠ '+error.message);
   toast('Shipment created'); viewShipments();
 }
+let lastAssignBox='';
 async function viewShipment(id){
   loading();
-  const [{data:ship},{data:boxes,error},{data:depts}] = await Promise.all([
+  const [{data:ship},{data:boxes,error},{data:depts},{data:unboxed}] = await Promise.all([
     client().from('shipments').select('*').eq('id',id).single(),
     client().from('boxes').select('*, items(count)').eq('shipment_id',id).order('code'),
-    client().from('departments').select('*').order('code')
+    client().from('departments').select('*').order('code'),
+    client().from('items').select('id,sku,style,gender,qty').eq('shipment_id',id).is('box_id',null).order('sku')
   ]);
   if(error)return errView(error);
+  // count items per dept for this shipment
   const boxIds=(boxes||[]).map(b=>b.id);
   const deptCounts={};
   if(boxIds.length){
     const {data:id2}=await client().from('items').select('department_code').in('box_id',boxIds);
     (id2||[]).forEach(r=>{if(r.department_code)deptCounts[r.department_code]=(deptCounts[r.department_code]||0)+1;});
   }
+  // group boxes by department_code
   const byDept={};
   const unassigned=[];
   (boxes||[]).forEach(b=>{
@@ -555,6 +653,18 @@ async function viewShipment(id){
     `<span class="dg-code" style="font-size:12px;letter-spacing:.08em">UNASSIGNED</span><span style="flex:1"></span>`,
     'style="background:var(--muted)"', unassigned, ''
   );
+  const unboxedHtml=(unboxed&&unboxed.length)?`
+    <div class="sec-label">To be boxed (${unboxed.length})</div>
+    <div class="card divide" style="max-height:440px;overflow:auto;margin-bottom:8px">
+      ${unboxed.map(it=>`
+        <div class="lcard" style="cursor:default;background:var(--panel)">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600">${esc(it.style)}</div>
+            <div class="sub mono">${esc(it.sku||'')}${it.gender?' · '+esc(it.gender):''} · ×${it.qty}</div>
+          </div>
+          <button class="btn acc sm" data-assign="${it.id}" data-label="${esc(it.style)}" style="flex:none">→ Box</button>
+        </div>`).join('')}
+    </div>`:'';
   app.innerHTML=`
     <a class="sub" href="#/shipments">← Shipments</a>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 16px">
@@ -562,11 +672,13 @@ async function viewShipment(id){
       <button class="btn ghost sm" id="editShip">✏️ Edit</button>
       <button class="btn danger sm" id="delShip">🗑 Delete</button>
     </div>
+    ${unboxedHtml}
     <div class="sec-label">Departments &amp; Boxes</div>
     ${deptGroupsHtml||''}
     ${unassignedHtml}
     <button class="btn ghost sm" id="addDept" style="margin-top:12px">+ Add department</button>`;
 
+  /* ---- shipment ---- */
   $('#editShip').onclick=async()=>{
     const r=await showDialog({title:'Edit shipment',fields:[
       {id:'name',label:'Shipment name',value:ship?.name||'',required:true},
@@ -586,6 +698,7 @@ async function viewShipment(id){
     toast('Shipment deleted'); location.hash='#/shipments';
   };
 
+  /* ---- departments ---- */
   $('#addDept').onclick=async()=>{
     const r=await showDialog({title:'Add department',fields:[
       {id:'code',label:'Department code',placeholder:'e.g. D12',required:true,mono:true},
@@ -614,8 +727,40 @@ async function viewShipment(id){
     if(error)return toast('⚠ '+error.message); toast('Department deleted'); viewShipment(id);
   });
 
+  /* ---- add box per dept ---- */
   app.querySelectorAll('[data-add-box-dept]').forEach(btn=>btn.onclick=()=>addBox(id,btn.dataset.addBoxDept||null));
 
+  /* ---- assign unboxed items to a box ---- */
+  app.querySelectorAll('[data-assign]').forEach(btn=>btn.onclick=async()=>{
+    const itemId=btn.dataset.assign;
+    const opts=[{value:'',label:'— choose box —'},...(boxes||[]).map(b=>({value:b.code,label:b.code+(b.zone?' · '+b.zone:'')})),{value:'__new__',label:'➕ New box…'}];
+    const r=await showDialog({title:`Assign "${btn.dataset.label}"`,fields:[
+      {id:'box',label:'Box',type:'select',value:lastAssignBox,options:opts}
+    ],confirmLabel:'Assign'});
+    if(!r)return;
+    let code=r.box;
+    if(!code){toast('Pick a box');return;}
+    let boxId;
+    if(code==='__new__'){
+      const r2=await showDialog({title:'New box',fields:[
+        {id:'code',label:'Box code',placeholder:'e.g. B-0001',required:true,mono:true},
+        {id:'zone',label:'Location / zone'},
+        {id:'dept',label:'Department code',mono:true}
+      ],confirmLabel:'Create & assign'});
+      if(!r2)return;
+      code=r2.code.trim();
+      const {data:nb,error}=await client().from('boxes').insert({code,zone:r2.zone||null,shipment_id:id,department_code:r2.dept?r2.dept.toUpperCase():null}).select('id').single();
+      if(error)return toast('⚠ '+error.message); boxId=nb.id;
+    }else{
+      const {data:fb}=await client().from('boxes').select('id').eq('code',code).maybeSingle();
+      if(!fb){toast('Box '+code+' not found');return;} boxId=fb.id;
+    }
+    const {error}=await client().from('items').update({box_id:boxId}).eq('id',itemId);
+    if(error)return toast('⚠ '+error.message);
+    lastAssignBox=code; toast('Assigned to '+code); viewShipment(id);
+  });
+
+  /* ---- box edit/delete ---- */
   app.querySelectorAll('[data-edit-box]').forEach(btn=>btn.onclick=async e=>{
     e.stopPropagation();
     const bid=btn.dataset.editBox;
@@ -663,13 +808,16 @@ async function addBox(shipmentId, deptCode=null){
   location.hash='#/box/'+encodeURIComponent(r.code.trim());
 }
 
+
+
+
 /* ===================================================== BOX DETAIL */
 async function viewBox(code){
   loading();
   const {data:box,error}=await client().from('boxes').select('*, shipments(name)').eq('code',code).maybeSingle();
   if(error)return errView(error);
   if(!box){
-    app.innerHTML=`<div class="empty"><div class="big">❓</div>No box <b class="mono">${esc(code)}</b> found.
+    app.innerHTML=`<div class="emptystate"><div class="big">❓</div>No box <b class="mono">${esc(code)}</b> found.
       <div style="margin-top:14px"><button class="btn acc" id="mk">Create box ${esc(code)}</button></div></div>`;
     $('#mk').onclick=async()=>{const{error}=await client().from('boxes').insert({code});if(error)return toast('⚠ '+error.message);viewBox(code);};
     return;
@@ -736,7 +884,7 @@ async function viewBox(code){
 
 function renderItems(box,items){
   const wrap=$('#items'); if(!wrap)return;
-  if(!items.length){wrap.innerHTML='<div class="empty">No items yet — add the first.</div>';return;}
+  if(!items.length){wrap.innerHTML='<div class="emptystate">No items yet — add the first.</div>';return;}
   wrap.innerHTML=items.map(i=>`
     <div class="itemrow" data-id="${i.id}">
       <div style="display:flex;gap:12px;align-items:center">
@@ -771,7 +919,7 @@ function renderItems(box,items){
     };
   });
 }
-
+/* manual repeat-entry form for one box */
 const GENDERS=['','Men','Women','Unisex','Boys','Girls','Kids','Baby'];
 function openAddForm(box){
   let added=0;
@@ -808,6 +956,7 @@ function openAddForm(box){
   document.body.appendChild(overlay);
   requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('open')));
   const g=id=>overlay.querySelector(id);
+  // load existing brands + departments for autocomplete
   client().from('items').select('brand').not('brand','is',null).limit(500).then(({data})=>{
     if(!data)return; const uniq=[...new Set(data.map(d=>d.brand).filter(Boolean))];
     g('#brandlist').innerHTML=uniq.map(b=>`<option value="${esc(b)}">`).join('');
@@ -826,6 +975,7 @@ function openAddForm(box){
     const style=g('#f_name').value.trim();
     if(!style){toast('Item name is required');g('#f_name').focus();return;}
     const sku=g('#f_code').value.trim()||null;
+    // proactive duplicate check — catch it before the DB does
     if(sku){
       const {data:clash}=await client().from('item_search').select('box_code').eq('sku',sku).maybeSingle();
       if(clash){
@@ -851,6 +1001,7 @@ function openAddForm(box){
     const rc=g('#recent'); rc.style.display='block';
     rc.innerHTML='<div class="sub" style="font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.05em;margin-bottom:4px">Added this session</div>'+
       recent.slice(0,20).map(r=>`<div class="r"><span>${esc(r.style)}${r.color?' · '+esc(r.color):''}</span><span class="mono" style="margin-left:auto">${r.sku?esc(r.sku):''} ×${r.qty}</span></div>`).join('');
+    // clear per-item fields; keep brand / gender / department sticky
     ['#f_name','#f_code','#f_color','#f_size'].forEach(s=>g(s).value='');
     g('#f_qty').value='1';
     g('#f_name').focus();
@@ -889,109 +1040,146 @@ function printLabel(box,items,qr){
 }
 
 /* ===================================================== CSV IMPORT */
+function normGender(s){
+  s=(s||'').toUpperCase();
+  if(s.includes('BOY')) return 'Boys';
+  if(s.includes('GIRL')) return 'Girls';
+  if(s.includes('BABY')||s.includes('INFANT')||s.includes('NEWBORN')) return 'Baby';
+  if(s.includes('KID')||s.includes('CHILD')||s.includes('JUNIOR')) return 'Kids';
+  if(s.includes('LAD')||s.includes('WOMEN')||s.includes('WOMAN')||s.includes('FEMALE')) return 'Women';
+  if(s.includes('MEN')||s.includes('MALE')||s.includes('GENT')) return 'Men';
+  if(s.includes('UNISEX')) return 'Unisex';
+  return s?s.charAt(0)+s.slice(1).toLowerCase():null;
+}
 function viewImport(){
   app.innerHTML=`
-    <h1 class="page">Import a packing list</h1>
+    <h1 class="page">Import GRN</h1>
     <div class="card pad" style="margin-bottom:14px">
-      <p class="sub" style="margin-top:0">Manual per-box entry is the main way to add stock (open a box → <b>Add items</b>). This CSV import stays as a bulk shortcut. Required columns: <b class="mono">box_code, item_name</b>. Optional: <b class="mono">item_code, brand, gender, department_code, color, size, qty, zone</b>. Rows with the same <b class="mono">box_code</b> group into one box.</p>
-      <div class="row" style="margin-bottom:12px">
-        <div><label class="f">Add all boxes to shipment</label>
-          <select class="t" id="shipSel"><option value="">— none —</option></select></div>
-        <div style="flex:0 0 auto;align-self:flex-end"><button class="btn ghost sm" id="dlTpl">Download template</button></div>
+      <p class="sub" style="margin-top:0">Upload a Goods Receive Note (Excel <b class="mono">.xlsx</b> or CSV). The app reads <b>item code</b>, <b>description</b>, <b>category</b> and <b>quantity</b> — wherever those columns are — and adds every line to the chosen shipment as <b>unboxed</b> items. You then assign each to a box from the shipment page.</p>
+      <div style="margin-bottom:12px">
+        <label class="f">Add items to shipment *</label>
+        <div style="display:flex;gap:8px">
+          <select class="t" id="shipSel" style="flex:1"><option value="">— choose a shipment —</option></select>
+          <button class="btn ghost sm" id="newShipBtn" style="flex:none">+ New</button>
+        </div>
       </div>
       <div class="drop" id="drop">
         <div style="font-size:32px">⬆</div>
-        <div style="font-weight:600;margin-top:6px">Drop CSV here or tap to choose</div>
+        <div style="font-weight:600;margin-top:6px">Drop GRN file here or tap to choose</div>
         <div class="sub" id="fname"></div>
       </div>
-      <input type="file" id="file" accept=".csv,text/csv" style="display:none">
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
     </div>
     <div id="importBody"></div>`;
-  client().from('shipments').select('id,name').order('created_at',{ascending:false}).then(({data})=>{
-    if(data) $('#shipSel').insertAdjacentHTML('beforeend',data.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join(''));
-  });
+  loadShipSel();
+  $('#newShipBtn').onclick=async()=>{
+    const r=await showDialog({title:'New shipment',fields:[
+      {id:'name',label:'Shipment name',placeholder:'e.g. EX/1001/26 — Mar 2026',required:true},
+      {id:'arrived_on',label:'Date',type:'date'}
+    ],confirmLabel:'Create'});
+    if(!r)return;
+    const {data,error}=await client().from('shipments').insert({name:r.name,arrived_on:r.arrived_on||null}).select('id').single();
+    if(error)return toast('⚠ '+error.message);
+    await loadShipSel(); $('#shipSel').value=data.id; toast('Shipment created');
+  };
   const file=$('#file'), drop=$('#drop');
   drop.onclick=()=>file.click();
   drop.ondragover=e=>{e.preventDefault();drop.style.borderColor='var(--accent)';};
   drop.ondragleave=()=>drop.style.borderColor='';
   drop.ondrop=e=>{e.preventDefault();drop.style.borderColor='';if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);};
   file.onchange=()=>{if(file.files[0])handleFile(file.files[0]);};
-  $('#dlTpl').onclick=()=>{
-    const csv='box_code,zone,item_code,brand,gender,department_code,item_name,color,size,qty\nB-0001,Aisle 3 / Shelf B,SK-204,Zara,Men,D12,Oxford Shirt,Navy,M,12\nB-0001,Aisle 3 / Shelf B,SK-204,Zara,Men,D12,Oxford Shirt,Navy,L,8\nB-0002,Aisle 1 / Shelf A,SK-310,H&M,Women,D08,Cotton Tee,White,S,20\n';
-    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ovs-inventory-template.csv';a.click();
-  };
+}
+async function loadShipSel(){
+  const {data}=await client().from('shipments').select('id,name').order('created_at',{ascending:false});
+  const sel=$('#shipSel'); if(!sel)return;
+  sel.innerHTML='<option value="">— choose a shipment —</option>'+(data||[]).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
 }
 let parsedRows=null;
-function handleFile(f){
-  $('#fname').textContent=f.name;
-  Papa.parse(f,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().toLowerCase(),complete:res=>{
-    const rows=res.data.map(r=>{
-      const q=parseInt(r.qty||r.quantity||r.count,10);
-      return {
-        box_code:(r.box_code||r.box||'').trim(), zone:(r.zone||r.location||'').trim(),
-        style:(r.item_name||r.style||r.item||r.name||'').trim(),
-        sku:(r.item_code||r.sku||r.code||'').trim(),
-        brand:(r.brand||'').trim(), gender:(r.gender||'').trim(),
-        department_code:(r.department_code||r.dept||r.dept_code||'').trim(),
-        color:(r.color||r.colour||'').trim(), size:(r.size||'').trim(),
-        qty:isNaN(q)?1:q
-      };
-    }).filter(r=>r.box_code&&r.style);
+async function handleFile(f){
+  $('#fname').textContent=f.name+' — reading…';
+  try{
+    const buf=await f.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const grid=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:''});
+    // find the header row (contains ITEM + a description col + QTY)
+    let hi=-1;
+    for(let i=0;i<Math.min(grid.length,40);i++){
+      const cells=grid[i].map(c=>String(c).trim().toLowerCase());
+      const hasItem=cells.some(c=>c==='item'||c==='item code'||(c.includes('item')&&!c.includes('descr')));
+      const hasDesc=cells.some(c=>c.includes('descr')||c==='description'||c==='name');
+      const hasQty=cells.some(c=>c==='qty'||c.includes('quantity'));
+      if(hasItem&&hasDesc&&hasQty){hi=i;break;}
+    }
+    if(hi<0)throw new Error('Could not find a header row with ITEM / DESCRIPTION / QTY columns.');
+    const H=grid[hi].map(c=>String(c).trim().toLowerCase());
+    const find=(preds)=>{for(const p of preds){const i=H.findIndex(h=>p(h));if(i>=0)return i;}return -1;};
+    const itemCol=find([h=>h==='item',h=>h==='item code'||h==='itemcode',h=>h.includes('item')&&h.includes('code'),h=>h==='code',h=>h.includes('item')&&!h.includes('descr')]);
+    const descCol=find([h=>h==='description',h=>h.startsWith('descript'),h=>h==='item name'||h==='name',h=>h.includes('descr')&&!h.includes('cat')]);
+    const catCol =find([h=>h.includes('cat')]);
+    const qtyCol =find([h=>h==='qty',h=>h.includes('quantity')]);
+    const rows=[];
+    for(let i=hi+1;i<grid.length;i++){
+      const r=grid[i];
+      const sku=itemCol>=0?String(r[itemCol]??'').trim():'';
+      const style=descCol>=0?String(r[descCol]??'').trim():'';
+      if(!sku&&!style)continue;
+      if(!sku)continue;
+      const gender=catCol>=0?normGender(String(r[catCol]??'').trim()):null;
+      const q=qtyCol>=0?Math.round(parseFloat(r[qtyCol])):NaN;
+      rows.push({sku,style:style||'(no description)',gender,qty:(isNaN(q)||q<=0)?1:q});
+    }
     parsedRows=rows;
-    const boxes=new Set(rows.map(r=>r.box_code));
     const pcs=rows.reduce((a,r)=>a+r.qty,0);
+    $('#fname').textContent=f.name;
+    if(!rows.length){$('#importBody').innerHTML='<div class="card pad sub">No item rows found below the header.</div>';return;}
     $('#importBody').innerHTML=`
       <div class="card pad">
         <div class="row" style="text-align:center">
-          <div><div class="cond" style="font-size:28px;font-weight:700">${boxes.size}</div><div class="sub">boxes</div></div>
           <div><div class="cond" style="font-size:28px;font-weight:700">${rows.length}</div><div class="sub">item lines</div></div>
           <div><div class="cond" style="font-size:28px;font-weight:700">${pcs}</div><div class="sub">pieces</div></div>
         </div>
-        <div style="overflow:auto;margin:14px 0;max-height:280px">
-          <table class="prev"><thead><tr><th>box</th><th>code</th><th>brand</th><th>gender</th><th>dept</th><th>item</th><th>color</th><th>size</th><th>qty</th></tr></thead>
-          <tbody>${rows.slice(0,12).map(r=>`<tr><td class="mono">${esc(r.box_code)}</td><td class="mono">${esc(r.sku)}</td><td>${esc(r.brand)}</td><td>${esc(r.gender)}</td><td class="mono">${esc(r.department_code)}</td><td>${esc(r.style)}</td><td>${esc(r.color)}</td><td>${esc(r.size)}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
-          ${rows.length>12?`<div class="sub" style="padding:8px">…and ${rows.length-12} more rows</div>`:''}
+        <div style="overflow:auto;margin:14px 0;max-height:300px">
+          <table class="prev"><thead><tr><th>item code</th><th>description</th><th>category</th><th>qty</th></tr></thead>
+          <tbody>${rows.slice(0,15).map(r=>`<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.style)}</td><td>${esc(r.gender||'')}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
+          ${rows.length>15?`<div class="sub" style="padding:8px">…and ${rows.length-15} more rows</div>`:''}
         </div>
         <div class="bar" id="bar" style="display:none;margin-bottom:10px"><i></i></div>
-        <button class="btn acc" id="runImport" style="width:100%">Import ${rows.length} lines into ${boxes.size} boxes</button>
+        <button class="btn acc" id="runImport" style="width:100%">Add ${rows.length} items to shipment</button>
       </div>`;
     $('#runImport').onclick=runImport;
-  }});
+  }catch(e){
+    $('#fname').textContent=f.name;
+    $('#importBody').innerHTML=`<div class="card pad" style="color:var(--bad)">⚠ ${esc(e.message||e)}</div>`;
+  }
 }
 async function runImport(){
   if(!parsedRows||!parsedRows.length)return;
+  const shipId=$('#shipSel').value;
+  if(!shipId){toast('Choose a shipment first');$('#shipSel').focus();return;}
   const btn=$('#runImport'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Importing…';
   const bar=$('#bar'); bar.style.display='block'; const fill=bar.querySelector('i');
-  const shipId=$('#shipSel').value||null;
   try{
-    const codes=[...new Set(parsedRows.map(r=>r.box_code))];
-    const zoneByCode={}; parsedRows.forEach(r=>{if(r.zone&&!zoneByCode[r.box_code])zoneByCode[r.box_code]=r.zone;});
-    const {data:existing}=await client().from('boxes').select('id,code').in('code',codes);
-    const map={}; (existing||[]).forEach(b=>map[b.code]=b.id);
-    const toCreate=codes.filter(c=>!map[c]).map(c=>({code:c,zone:zoneByCode[c]||null,shipment_id:shipId}));
-    for(let i=0;i<toCreate.length;i+=500){
-      const {data,error}=await client().from('boxes').insert(toCreate.slice(i,i+500)).select('id,code');
-      if(error)throw error; data.forEach(b=>map[b.code]=b.id);
+    // skip SKUs already in the system
+    const skus=parsedRows.map(r=>r.sku).filter(Boolean);
+    const existing=new Set();
+    for(let i=0;i<skus.length;i+=300){
+      const {data:ex}=await client().from('items').select('sku').in('sku',skus.slice(i,i+300));
+      (ex||[]).forEach(r=>existing.add(r.sku));
     }
-    const skusToCheck=parsedRows.map(r=>r.sku).filter(Boolean);
-    let existingSkus=new Set();
-    if(skusToCheck.length){
-      const {data:ex}=await client().from('items').select('sku').in('sku',skusToCheck);
-      (ex||[]).forEach(r=>existingSkus.add(r.sku));
-    }
-    const allItems=parsedRows.map(r=>({box_id:map[r.box_code],style:r.style,sku:r.sku||null,brand:r.brand||null,gender:r.gender||null,department_code:r.department_code||null,color:r.color||null,size:r.size||null,qty:r.qty}));
-    const items=allItems.filter(r=>!r.sku||!existingSkus.has(r.sku));
-    const skipped=allItems.length-items.length;
+    const all=parsedRows.map(r=>({shipment_id:shipId,box_id:null,sku:r.sku,style:r.style,gender:r.gender||null,qty:r.qty}));
+    const items=all.filter(r=>!existing.has(r.sku));
+    const skipped=all.length-items.length;
     const chunk=500;
     for(let i=0;i<items.length;i+=chunk){
       const {error}=await client().from('items').insert(items.slice(i,i+chunk));
       if(error)throw error;
-      fill.style.width=Math.round((i+chunk)/items.length*100)+'%';
+      fill.style.width=Math.round((i+chunk)/Math.max(items.length,1)*100)+'%';
     }
     fill.style.width='100%';
-    const msg=`✓ Imported ${items.length} lines into ${codes.length} boxes`+(skipped?` · ${skipped} duplicate SKU(s) skipped`:'');
-    toast(msg);
-    btn.innerHTML='✓ Done — import another?'; btn.disabled=false; parsedRows=null;
+    toast(`✓ Added ${items.length} items`+(skipped?` · ${skipped} already in system, skipped`:''));
+    btn.innerHTML='✓ Done — open the shipment to box them';
+    parsedRows=null;
   }catch(e){ toast('⚠ '+(e.message||e)); btn.disabled=false; btn.textContent='Retry import'; }
 }
 
@@ -1020,7 +1208,7 @@ function viewSettings(forced){
   const r=$('#resetCfg'); if(r)r.onclick=()=>{localStorage.clear();sb=null;location.hash='#/settings';location.reload();};
 }
 
-function errView(e){app.innerHTML=`<div class="empty"><div class="big">⚠</div>${esc(e.message||e)}<div class="sub" style="margin-top:8px">If this is your first run, check Settings and that schema.sql ran.</div></div>`;}
+function errView(e){app.innerHTML=`<div class="emptystate"><div class="big">⚠</div>${esc(e.message||e)}<div class="sub" style="margin-top:8px">If this is your first run, check Settings and that schema.sql ran.</div></div>`;}
 </script>
 </body>
 </html>
