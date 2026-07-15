@@ -185,7 +185,8 @@
   .resbox .hd .zone{font-size:12px;color:#9fb4c0}
   .resrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid var(--line)}
   .resrow .qty{margin-left:auto;font-family:"IBM Plex Mono";font-weight:700}
-  .thumb{width:42px;height:42px;border-radius:7px;background:rgba(255,255,255,.08);border:1px solid var(--line);background-position:center;background-size:cover;flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px}
+  .thumb{position:relative;width:42px;height:42px;border-radius:7px;background:rgba(255,255,255,.08);border:1px solid var(--line);background-position:center;background-size:cover;flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px}
+  .thumb .swatch{position:absolute;right:-3px;bottom:-3px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg);box-shadow:0 0 0 1px rgba(255,255,255,.2)}
 
   /* list cards */
   .lcard{display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none;transition:background 140ms ease,transform 120ms var(--ease-out)}
@@ -420,6 +421,50 @@ function client(){ return sb; }
 const app = document.getElementById('app');
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- colour-name → swatch ----------
+   Fashion colour text ("dark blue", "sky blue", "mustard") is free-typed, so we match
+   the longest known colour phrase found anywhere in the string, then shade it lighter
+   or darker if a "dark"/"light"/"pale" modifier is also present. */
+const COLOR_BASE = {
+  black:'#1a1a1a', white:'#f2f2ee', ivory:'#fdf6e3', cream:'#f5e6c8', beige:'#e3d5b8', tan:'#d2b48c',
+  khaki:'#c3b091', denim:'#4a6b8a', navy:'#1b2a4a', 'sky blue':'#7dd3fc', 'baby blue':'#a8d8f0',
+  'royal blue':'#1e40af', blue:'#2563eb', teal:'#0d9488', turquoise:'#14b8a6', cyan:'#06b6d4',
+  'forest green':'#166534', 'olive green':'#6b7a3a', olive:'#6b7a3a', green:'#16a34a', mint:'#7fd8a6',
+  lime:'#84cc16', mustard:'#c9a227', gold:'#d4af37', yellow:'#eab308', 'burnt orange':'#c2410c',
+  rust:'#9a3412', orange:'#ea580c', peach:'#f5a25d', apricot:'#f0a860', maroon:'#7f1d1d',
+  burgundy:'#7a1030', wine:'#722f37', red:'#dc2626', 'hot pink':'#ec1f8e', 'baby pink':'#f5c1cf',
+  pink:'#ec4899', salmon:'#fa8072', coral:'#f97066', chocolate:'#5c3a21', camel:'#c19a6b',
+  brown:'#7a4a2b', charcoal:'#36454f', grey:'#8b8b8b', gray:'#8b8b8b', silver:'#c0c0c0',
+  lavender:'#c4b5fd', lilac:'#c8a2c8', violet:'#8b5cf6', plum:'#8e4585', indigo:'#4338ca',
+  magenta:'#d6249f', fuchsia:'#d946ef', purple:'#9333ea', mauve:'#b784a7'
+};
+const COLOR_KEYS = Object.keys(COLOR_BASE).sort((a,b)=>b.length-a.length);
+function shadeHex(hex,pct){
+  const n=parseInt(hex.slice(1),16);
+  let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  const t=pct<0?0:255,p=Math.abs(pct)/100;
+  r=Math.round((t-r)*p)+r; g=Math.round((t-g)*p)+g; b=Math.round((t-b)*p)+b;
+  return '#'+(1<<24|(r<<16)|(g<<8)|b).toString(16).slice(1);
+}
+function textToColor(text){
+  if(!text)return null;
+  const t=String(text).toLowerCase();
+  for(const k of COLOR_KEYS){
+    if(t.includes(k)){
+      let hex=COLOR_BASE[k];
+      if(/\bdark\b/.test(t))hex=shadeHex(hex,-30);
+      else if(/\bpale\b/.test(t))hex=shadeHex(hex,45);
+      else if(/\blight\b/.test(t))hex=shadeHex(hex,30);
+      return hex;
+    }
+  }
+  return null;
+}
+function colorSwatchHtml(text){
+  const hex=textToColor(text);
+  return hex?`<span class="swatch" style="background:${hex}" title="${esc(text)}"></span>`:'';
+}
 
 /* ---------- offline write-queue ----------
    Scoped to the highest-frequency floor operations (qty edits, adding items, removing
@@ -1006,7 +1051,7 @@ async function doSearch(term){
       </div>
       ${b.rows.map(r=>`
         <div class="resrow">
-          <div class="thumb" ${r.photo_url?`style="background-image:url(${esc(r.photo_url)})"`:''}>${r.photo_url?'':'👕'}</div>
+          <div class="thumb" ${r.photo_url?`style="background-image:url(${esc(r.photo_url)})"`:''}>${r.photo_url?'':'👕'}${colorSwatchHtml(r.color)}</div>
           <div>
             <div style="font-weight:600">${esc(r.style)}${r.color?' · '+esc(r.color):''}</div>
             <div class="sub mono">${[r.sku,r.brand,r.gender,r.department_code?'Dept '+r.department_code:'',r.size?'size '+r.size:''].filter(Boolean).map(esc).join(' · ')||'—'}</div>
@@ -1440,7 +1485,7 @@ function renderItems(box,items){
   wrap.innerHTML=items.map(i=>`
     <div class="itemrow" data-id="${i.id}">
       <div style="display:flex;gap:12px;align-items:center">
-        <div class="thumb" ${i.photo_url?`style="background-image:url(${esc(i.photo_url)})"`:''}>${i.photo_url?'':'👕'}</div>
+        <div class="thumb" ${i.photo_url?`style="background-image:url(${esc(i.photo_url)})"`:''}>${i.photo_url?'':'👕'}${colorSwatchHtml(i.color)}</div>
         <div>
           <div style="font-weight:600">${esc(i.style)}${i.color?' · '+esc(i.color):''}</div>
           <div class="sub mono">${[i.sku,i.brand,i.gender,i.department_code?'Dept '+i.department_code:'',i.size?'size '+i.size:''].filter(Boolean).map(esc).join(' · ')||'—'}</div>
