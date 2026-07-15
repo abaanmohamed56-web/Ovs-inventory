@@ -599,7 +599,7 @@ function collapseAndRemove(rowEl, after){
 // "*, shipments(name)") into a later restore insert, which would error on an unknown column.
 const COLS={
   boxes:['id','code','shipment_id','zone','label_photo','status','created_at','department_code'],
-  items:['id','box_id','style','sku','color','size','qty','photo_url','created_at','brand','gender','department_code','shipment_id'],
+  items:['id','box_id','style','sku','barcode','color','size','qty','photo_url','created_at','brand','gender','department_code','shipment_id'],
   shipments:['id','name','arrived_on','note','created_at'],
   departments:['id','code','name','created_at','shipment_id']
 };
@@ -1183,7 +1183,7 @@ async function assignItemQty(item,qty,boxId){
     const {error:e1}=await client().from('items').update({qty:item.qty-qty}).eq('id',item.id);
     if(e1){toast('⚠ '+e1.message);return false;}
     const {error:e2}=await client().from('items').insert({
-      box_id:boxId,shipment_id:item.shipment_id,sku:item.sku,style:item.style,
+      box_id:boxId,shipment_id:item.shipment_id,sku:item.sku,barcode:item.barcode||null,style:item.style,
       color:item.color||null,size:item.size||null,brand:item.brand||null,
       gender:item.gender||null,department_code:item.department_code||null,qty
     });
@@ -1205,13 +1205,20 @@ async function scanItems({box,shipmentId}={}){
     try{
       const code=raw.trim();
       if(!code)return;
-      let q=client().from('items').select('*').is('box_id',null).eq('sku',code);
-      if(sid)q=q.eq('shipment_id',sid);
-      const {data:matches,error}=await q.limit(1);
+      // Match the scanned value against the EAN/barcode first (that's what's physically
+      // printed on the garment), then fall back to the OVS SKU so a scanned or typed SKU
+      // still resolves.
+      const lookup=async col=>{
+        let q=client().from('items').select('*').is('box_id',null).eq(col,code);
+        if(sid)q=q.eq('shipment_id',sid);
+        const {data,error}=await q.limit(1);
+        return {row:data&&data[0],error};
+      };
+      let {row:item,error}=await lookup('barcode');
       if(error){toast('⚠ '+error.message);return;}
-      const item=matches&&matches[0];
+      if(!item){({row:item,error}=await lookup('sku')); if(error){toast('⚠ '+error.message);return;}}
       if(!item){toast(`⚠ No unboxed item found for code "${code}"`);return;}
-      const details=[item.sku&&('Code '+item.sku),item.department_code&&('Dept '+item.department_code),item.size&&('Size '+item.size),item.color,item.brand].filter(Boolean).join(' · ');
+      const details=[item.sku&&('SKU '+item.sku),item.department_code&&('Dept '+item.department_code),item.size&&('Size '+item.size),item.color,item.brand].filter(Boolean).join(' · ');
       const r=await showDialog({title:item.style,fields:[
         {id:'qty',label:'Quantity to assign',type:'number',value:String(item.qty),required:true,hint:`${details} · ${item.qty} unboxed remaining`}
       ],confirmLabel:box?'Add to '+box.code:'Assign'});
@@ -1633,7 +1640,8 @@ function openAddForm(box){
       <div class="sbody">
         <div class="fgrid">
           <div class="full"><label class="f">Item name *</label><input class="t" id="f_name" placeholder="e.g. Oxford Shirt"></div>
-          <div><label class="f">Item code</label><input class="t mono" id="f_code" placeholder="e.g. SK-204"></div>
+          <div><label class="f">Item code / SKU</label><input class="t mono" id="f_code" placeholder="e.g. SK-204"></div>
+          <div><label class="f">Barcode / EAN</label><input class="t mono" id="f_barcode" placeholder="e.g. 8057914097369"></div>
           <div><label class="f">Department code</label><input class="t mono" id="f_dept" placeholder="e.g. D12" list="deptlist">
             <div class="sticky-note">kept for next item ↺</div></div>
           <div><label class="f">Brand</label><input class="t" id="f_brand" placeholder="e.g. Zara" list="brandlist">
@@ -1690,6 +1698,7 @@ function openAddForm(box){
     }
     const rec={
       box_id:box.id, style, sku,
+      barcode:g('#f_barcode').value.trim()||null,
       department_code:g('#f_dept').value.trim()||null,
       brand:g('#f_brand').value.trim()||null,
       gender:normGender(g('#f_gender').value),
@@ -1708,7 +1717,7 @@ function openAddForm(box){
     rc.innerHTML='<div class="sub" style="font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.05em;margin-bottom:4px">Added this session</div>'+
       recent.slice(0,20).map(r=>`<div class="r"><span>${esc(r.style)}${r.color?' · '+esc(r.color):''}</span><span class="mono" style="margin-left:auto">${r.sku?esc(r.sku):''} ×${r.qty}</span></div>`).join('');
     // clear per-item fields; keep brand / gender / department sticky
-    ['#f_name','#f_code','#f_color','#f_size'].forEach(s=>g(s).value='');
+    ['#f_name','#f_code','#f_barcode','#f_color','#f_size'].forEach(s=>g(s).value='');
     g('#f_qty').value='1';
     g('#f_name').focus();
   }
@@ -1757,11 +1766,21 @@ function normGender(s){
   if(s.includes('UNISEX')) return 'Unisex';
   return s?s.charAt(0)+s.slice(1).toLowerCase():null;
 }
+// OVS spreadsheets encode many fields as "code ~ label" (e.g. Department "66 ~ Denim
+// Woman", or an Options colour "1 ~ Medium Blue"). Split on the first "~"; when there's
+// no "~", the whole value serves as both code and label.
+function splitCodeLabel(v){
+  const s=String(v??'').trim();
+  if(!s)return {code:null,label:null};
+  const i=s.indexOf('~');
+  if(i<0)return {code:s,label:s};
+  return {code:s.slice(0,i).trim()||null,label:s.slice(i+1).trim()||null};
+}
 function viewImport(){
   app.innerHTML=`
     <h1 class="page">Import GRN</h1>
     <div class="card pad" style="margin-bottom:14px">
-      <p class="sub" style="margin-top:0">Upload a Goods Receive Note (Excel <b class="mono">.xlsx</b> or CSV). The app reads <b>item code</b>, <b>description</b>, <b>category</b>, <b>quantity</b> and — if present — <b>department</b>, <b>size</b>, <b>colour</b> and <b>brand</b>, wherever those columns are, and adds every line to the chosen shipment as <b>unboxed</b> items. You then assign each to a box from the shipment page, or scan its barcode to assign it in seconds.</p>
+      <p class="sub" style="margin-top:0">Upload a Goods Receive Note (Excel <b class="mono">.xlsx</b> or CSV). The app reads the <b>SKU</b>, <b>EAN/barcode</b>, <b>description</b>, <b>gender</b>, <b>quantity</b> and — if present — <b>department</b>, <b>size</b>, <b>colour</b> and <b>brand</b>, wherever those columns are, and adds every line to the chosen shipment as <b>unboxed</b> items. Departments in the file are created automatically. You then assign each to a box from the shipment page, or scan its barcode to assign it in seconds.</p>
       <div style="margin-bottom:12px">
         <label class="f">Add items to shipment *</label>
         <div style="display:flex;gap:8px">
@@ -1814,40 +1833,48 @@ async function handleFile(f){
     const wb=XLSX.read(buf,{type:'array'});
     const ws=wb.Sheets[wb.SheetNames[0]];
     const grid=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:''});
-    // find the header row (contains ITEM + a description col + QTY)
+    // Header detection: a header row needs a quantity column, a description/name column,
+    // and at least one identifier column (sku / item code / ean / barcode / code). This
+    // is more robust than the old ITEM+DESCRIPTION+QTY match, which could latch onto
+    // unrelated "Item …" columns (e.g. "Item Composition") in real OVS GRN files.
+    const isDescHdr=c=>c==='description'||c==='item description'||c==='item name'||c==='name'||(c.includes('descr')&&!c.includes('gender'));
+    const isIdHdr=c=>c.includes('sku')||c==='item'||c==='item code'||c==='item no'||c==='item number'||(c.includes('item')&&c.includes('code'))||c==='code'||c.includes('ean')||c.includes('barcode')||c.includes('bar code')||c.includes('gtin')||c.includes('upc');
+    const isQtyHdr=c=>c==='qty'||c.includes('quantity');
     let hi=-1;
     for(let i=0;i<Math.min(grid.length,40);i++){
       const cells=grid[i].map(c=>String(c).trim().toLowerCase());
-      const hasItem=cells.some(c=>c==='item'||c==='item code'||(c.includes('item')&&!c.includes('descr')));
-      const hasDesc=cells.some(c=>c.includes('descr')||c==='description'||c==='name');
-      const hasQty=cells.some(c=>c==='qty'||c.includes('quantity'));
-      if(hasItem&&hasDesc&&hasQty){hi=i;break;}
+      if(cells.some(isQtyHdr)&&cells.some(isDescHdr)&&cells.some(isIdHdr)){hi=i;break;}
     }
-    if(hi<0)throw new Error('Could not find a header row with ITEM / DESCRIPTION / QTY columns.');
+    if(hi<0)throw new Error('Could not find a header row with an item/SKU column, a description column and a quantity column.');
     const H=grid[hi].map(c=>String(c).trim().toLowerCase());
     const find=(preds)=>{for(const p of preds){const i=H.findIndex(h=>p(h));if(i>=0)return i;}return -1;};
-    const itemCol=find([h=>h==='item',h=>h==='item code'||h==='itemcode',h=>h.includes('item')&&h.includes('code'),h=>h==='code',h=>h.includes('item')&&!h.includes('descr')]);
-    const descCol=find([h=>h==='description',h=>h.startsWith('descript'),h=>h==='item name'||h==='name',h=>h.includes('descr')&&!h.includes('cat')]);
-    const catCol =find([h=>h.includes('cat')]);
-    const qtyCol =find([h=>h==='qty',h=>h.includes('quantity')]);
-    const deptCol =find([h=>h==='dept'||h==='department',h=>h==='dept code'||h==='department code',h=>h.includes('dept')||h.includes('department')]);
-    const sizeCol =find([h=>h==='size',h=>h.includes('size')]);
-    const colorCol=find([h=>h==='colour'||h==='color',h=>h.includes('colour')||h.includes('color')]);
-    const brandCol=find([h=>h==='brand',h=>h.includes('brand')]);
+    // Explicit, ordered mapping. Kept deliberately narrow so composition/customs/cost
+    // columns are never mistaken for the item code.
+    const skuCol   =find([h=>h==='sku'||h==='sku number'||h==='sku no',h=>h.includes('sku'),h=>h==='item code'||h==='item no'||h==='item number'||h==='itemcode',h=>h.includes('item')&&h.includes('code'),h=>h==='item',h=>h==='code']);
+    const barcodeCol=find([h=>h==='ean'||h==='ean number'||h==='ean code',h=>h.includes('ean'),h=>h.includes('barcode')||h.includes('bar code'),h=>h==='gtin'||h==='upc']);
+    const descCol  =find([h=>h==='item description',h=>h==='description',h=>h==='item name'||h==='name',h=>h.includes('descr')&&!h.includes('gender')&&!h.includes('cat')]);
+    const genderCol=find([h=>h==='gender'||h==='gender description'||h==='gender desc',h=>h.includes('gender'),h=>h.includes('cat')]);
+    const qtyCol   =find([h=>h==='qty',h=>h.includes('quantity')]);
+    const deptCol  =find([h=>h==='dept'||h==='department',h=>h==='dept code'||h==='department code',h=>h.includes('dept')||h.includes('department')]);
+    const sizeCol  =find([h=>h==='size',h=>h.includes('size')]);
+    const colorCol =find([h=>h==='colour'||h==='color',h=>h.includes('colour')||h.includes('color')]);
+    const brandCol =find([h=>h==='brand',h=>h.includes('brand')]);
     const rows=[];
     for(let i=hi+1;i<grid.length;i++){
       const r=grid[i];
-      const sku=itemCol>=0?String(r[itemCol]??'').trim():'';
+      const sku=skuCol>=0?String(r[skuCol]??'').trim():'';
+      const barcode=barcodeCol>=0?(String(r[barcodeCol]??'').trim()||null):null;
       const style=descCol>=0?String(r[descCol]??'').trim():'';
-      if(!sku&&!style)continue;
-      if(!sku)continue;
-      const gender=catCol>=0?normGender(String(r[catCol]??'').trim()):null;
+      // Need at least an identifier (sku or barcode) to import a row.
+      if(!sku&&!barcode&&!style)continue;
+      if(!sku&&!barcode)continue;
+      const gender=genderCol>=0?normGender(String(r[genderCol]??'').trim()):null;
       const q=qtyCol>=0?Math.round(parseFloat(r[qtyCol])):NaN;
-      const department_code=deptCol>=0?(String(r[deptCol]??'').trim()||null):null;
+      const dept=deptCol>=0?splitCodeLabel(r[deptCol]):{code:null,label:null};
       const size=sizeCol>=0?(String(r[sizeCol]??'').trim()||null):null;
-      const color=colorCol>=0?(String(r[colorCol]??'').trim()||null):null;
+      const color=colorCol>=0?(splitCodeLabel(r[colorCol]).label||null):null;
       const brand=brandCol>=0?(String(r[brandCol]??'').trim()||null):null;
-      rows.push({sku,style:style||'(no description)',gender,qty:(isNaN(q)||q<=0)?1:q,department_code,size,color,brand});
+      rows.push({sku:sku||null,barcode,style:style||'(no description)',gender,qty:(isNaN(q)||q<=0)?1:q,department_code:dept.code,department_name:dept.label,size,color,brand});
     }
     parsedRows=rows;
     const pcs=rows.reduce((a,r)=>a+r.qty,0);
@@ -1860,8 +1887,8 @@ async function handleFile(f){
           <div><div class="cond" style="font-size:28px;font-weight:700">${pcs}</div><div class="sub">pieces</div></div>
         </div>
         <div style="overflow:auto;margin:14px 0;max-height:300px">
-          <table class="prev" style="min-width:640px"><thead><tr><th>item code</th><th>description</th><th>category</th><th>dept</th><th>size</th><th>colour</th><th>brand</th><th>qty</th></tr></thead>
-          <tbody>${rows.slice(0,15).map(r=>`<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.style)}</td><td>${esc(r.gender||'')}</td><td class="mono">${esc(r.department_code||'')}</td><td>${esc(r.size||'')}</td><td>${esc(r.color||'')}</td><td>${esc(r.brand||'')}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
+          <table class="prev" style="min-width:760px"><thead><tr><th>sku</th><th>barcode</th><th>description</th><th>gender</th><th>dept</th><th>size</th><th>colour</th><th>brand</th><th>qty</th></tr></thead>
+          <tbody>${rows.slice(0,15).map(r=>`<tr><td class="mono">${esc(r.sku||'')}</td><td class="mono">${esc(r.barcode||'')}</td><td>${esc(r.style)}</td><td>${esc(r.gender||'')}</td><td class="mono">${esc(r.department_code||'')}</td><td>${esc(r.size||'')}</td><td>${esc(r.color||'')}</td><td>${esc(r.brand||'')}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
           ${rows.length>15?`<div class="sub" style="padding:8px">…and ${rows.length-15} more rows</div>`:''}
         </div>
         <div class="bar" id="bar" style="display:none;margin-bottom:10px"><i></i></div>
@@ -1880,15 +1907,27 @@ async function runImport(){
   const btn=$('#runImport'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Importing…';
   const bar=$('#bar'); bar.style.display='block'; const fill=bar.querySelector('i');
   try{
-    // skip SKUs already in the system
+    // Auto-create any departments named in the GRN (code + label) that don't yet exist
+    // on this shipment, so imported items group correctly on the shipment page.
+    const deptMap=new Map();
+    parsedRows.forEach(r=>{ if(r.department_code&&!deptMap.has(r.department_code))deptMap.set(r.department_code,r.department_name||r.department_code); });
+    if(deptMap.size){
+      const {data:exDepts}=await client().from('departments').select('code').eq('shipment_id',shipId);
+      const have=new Set((exDepts||[]).map(d=>d.code));
+      const newDepts=[...deptMap.entries()].filter(([code])=>!have.has(code)).map(([code,name])=>({code,name,shipment_id:shipId}));
+      if(newDepts.length){ const {error:de}=await client().from('departments').insert(newDepts); if(de)throw de; }
+    }
+    // Skip rows already in the system, keyed by whichever identifier the row has
+    // (barcode/EAN preferred, else SKU).
+    const keyOf=r=>r.barcode||r.sku||null;
+    const barcodes=parsedRows.map(r=>r.barcode).filter(Boolean);
     const skus=parsedRows.map(r=>r.sku).filter(Boolean);
     const existing=new Set();
-    for(let i=0;i<skus.length;i+=300){
-      const {data:ex}=await client().from('items').select('sku').in('sku',skus.slice(i,i+300));
-      (ex||[]).forEach(r=>existing.add(r.sku));
-    }
-    const all=parsedRows.map(r=>({shipment_id:shipId,box_id:null,sku:r.sku,style:r.style,gender:r.gender||null,qty:r.qty,department_code:r.department_code||null,size:r.size||null,color:r.color||null,brand:r.brand||null}));
-    const items=all.filter(r=>!existing.has(r.sku));
+    const collect=async(col,vals)=>{ for(let i=0;i<vals.length;i+=300){ const {data:ex}=await client().from('items').select(col).in(col,vals.slice(i,i+300)); (ex||[]).forEach(r=>existing.add(r[col])); } };
+    if(barcodes.length)await collect('barcode',barcodes);
+    if(skus.length)await collect('sku',skus);
+    const all=parsedRows.map(r=>({shipment_id:shipId,box_id:null,sku:r.sku||null,barcode:r.barcode||null,style:r.style,gender:r.gender||null,qty:r.qty,department_code:r.department_code||null,size:r.size||null,color:r.color||null,brand:r.brand||null}));
+    const items=all.filter(r=>{ const k=keyOf(r); return !k||!existing.has(k); });
     const skipped=all.length-items.length;
     const chunk=500;
     for(let i=0;i<items.length;i+=chunk){
