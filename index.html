@@ -384,12 +384,12 @@
 <div class="toast" id="toast"></div>
 <div class="modal" id="scannerModal">
   <div class="sheet" style="max-width:480px;padding:0;overflow:hidden">
-    <div class="shd"><span>Scan box QR code</span><button class="btn ghost sm" id="scanCancel" style="margin-left:auto">✕</button></div>
+    <div class="shd"><span id="scanTitle">Scan box QR code</span><button class="btn ghost sm" id="scanCancel" style="margin-left:auto">✕</button></div>
     <div style="position:relative;background:#000">
       <video id="scanVideo" playsinline autoplay muted style="width:100%;display:block;max-height:70vh;object-fit:cover"></video>
       <div class="scan-frame"></div>
     </div>
-    <div class="sbody" style="text-align:center"><p class="sub" style="margin:0">Point your camera at the box's printed QR code.</p></div>
+    <div class="sbody" style="text-align:center"><p class="sub" id="scanHint" style="margin:0">Point your camera at the box's printed QR code.</p></div>
   </div>
 </div>
 
@@ -397,6 +397,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import * as XLSX from 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm';
 import QRCode from 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/+esm';
+import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm';
 
 /* ---------- config (baked-in defaults; override in Settings) ---------- */
 const DEFAULT_URL = 'https://vgtsushfackessomenas.supabase.co';
@@ -794,53 +795,60 @@ document.getElementById('gotoBox').onclick=async()=>{
   if(r?.code)location.hash='#/box/'+encodeURIComponent(r.code.trim());
 };
 
-/* ---------- camera QR scan ("Go to box" without typing) ---------- */
-let scannerStream=null, scannerRAF=null;
+/* ---------- camera barcode/QR scan ----------
+   Shared camera lifecycle used by both "Go to box" (QR) and "Scan item" (1D barcode
+   from a GRN-imported item) — zxing's MultiFormatReader decodes both, so one engine
+   covers everything instead of depending on the inconsistently-supported native
+   BarcodeDetector (especially for 1D formats on iOS Safari). */
+let scannerControls=null;
 function closeScanner(){
   const overlay=document.getElementById('scannerModal');
   overlay.classList.remove('open');
   modalClosed();
-  if(scannerRAF)cancelAnimationFrame(scannerRAF);
-  scannerRAF=null;
-  if(scannerStream){ scannerStream.getTracks().forEach(t=>t.stop()); scannerStream=null; }
+  if(scannerControls){ try{scannerControls.stop();}catch(e){} scannerControls=null; }
 }
-async function openScanner(){
-  if(!('BarcodeDetector' in window)){
+// openScanner(onResult, {continuous, title, hint}) opens the camera and calls
+// onResult(rawText) on each successful decode. By default the scanner closes itself
+// after the first result (used for "Go to box"); pass continuous:true to keep the
+// camera running so onResult can be called repeatedly (used for scanning several
+// items in a row) — the caller is then responsible for closing it (e.g. the ✕ button)
+// and for ignoring re-entrant results while it's showing its own follow-up dialog.
+// Returns true if the camera started, false if scanning isn't available/permitted —
+// callers should fall back to manual entry in that case.
+async function openScanner(onResult,{continuous=false,title='Scan box QR code',hint="Point your camera at the box's printed QR code."}={}){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){
     toast('⚠ Camera scanning isn\'t supported in this browser — enter the code instead.');
-    return document.getElementById('gotoBox').click();
+    return false;
   }
   const overlay=document.getElementById('scannerModal');
+  document.getElementById('scanTitle').textContent=title;
+  document.getElementById('scanHint').textContent=hint;
   overlay.classList.add('open');
   modalOpened();
   const video=document.getElementById('scanVideo');
+  const reader=new BrowserMultiFormatReader();
   try{
-    scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    scannerControls=await reader.decodeFromConstraints({video:{facingMode:'environment'}},video,(result)=>{
+      if(!result)return;
+      const raw=result.getText();
+      if(!continuous)closeScanner();
+      onResult(raw);
+    });
+    return true;
   }catch(e){
-    toast('⚠ Camera access denied or unavailable');
+    toast('⚠ Camera access denied or unavailable — enter the code instead.');
     closeScanner();
-    return;
+    return false;
   }
-  video.srcObject=scannerStream;
-  await video.play().catch(()=>{});
-  const detector=new BarcodeDetector({formats:['qr_code']});
-  const tick=async()=>{
-    if(!scannerStream)return;
-    try{
-      const codes=await detector.detect(video);
-      if(codes.length){
-        const raw=codes[0].rawValue||'';
-        closeScanner();
-        const m=raw.match(/[?&]box=([^&]+)/);
-        const code=m?decodeURIComponent(m[1]):raw;
-        if(code.trim())location.hash='#/box/'+encodeURIComponent(code.trim());
-        return;
-      }
-    }catch(e){}
-    scannerRAF=requestAnimationFrame(tick);
-  };
-  scannerRAF=requestAnimationFrame(tick);
 }
-document.getElementById('scanBox').onclick=openScanner;
+document.getElementById('scanBox').onclick=async()=>{
+  const ok=await openScanner(raw=>{
+    const m=raw.match(/[?&]box=([^&]+)/);
+    const code=m?decodeURIComponent(m[1]):raw;
+    if(code.trim())location.hash='#/box/'+encodeURIComponent(code.trim());
+  });
+  if(!ok)document.getElementById('gotoBox').click();
+};
 document.getElementById('scanCancel').onclick=closeScanner;
 document.getElementById('scannerModal').addEventListener('click',e=>{ if(e.target.id==='scannerModal')closeScanner(); });
 document.getElementById('offlineBadge').onclick=()=>{ toast('Retrying sync…'); flushQueue(); };
@@ -1128,13 +1136,105 @@ async function newShipment(){
   toast('Shipment created'); viewShipments();
 }
 let lastAssignBox='';
+// Prompts the user to choose (or create) a box within a shipment. Returns the box id,
+// or null if cancelled/failed. Shared by the "→ Box" button on unboxed items and the
+// scan-to-assign flow below.
+async function pickBoxForShipment(shipmentId,label){
+  const [{data:boxes},{data:depts}]=await Promise.all([
+    client().from('boxes').select('id,code,zone').eq('shipment_id',shipmentId).order('code'),
+    client().from('departments').select('code,name').eq('shipment_id',shipmentId).order('code')
+  ]);
+  const opts=[{value:'',label:'— choose box —'},...(boxes||[]).map(b=>({value:b.code,label:b.code+(b.zone?' · '+b.zone:'')})),{value:'__new__',label:'➕ New box…'}];
+  const r=await showDialog({title:`Assign "${label}"`,fields:[
+    {id:'box',label:'Box',type:'select',value:lastAssignBox,options:opts}
+  ],confirmLabel:'Assign'});
+  if(!r)return null;
+  let code=r.box;
+  if(!code){toast('Pick a box');return null;}
+  if(code==='__new__'){
+    const deptOpts=[{value:'',label:'— Unassigned —'},...(depts||[]).map(d=>({value:d.code,label:`${d.code} — ${d.name}`}))];
+    const r2=await showDialog({title:'New box',fields:[
+      {id:'code',label:'Box code',placeholder:'e.g. B-0001',required:true,mono:true},
+      {id:'zone',label:'Location / zone'},
+      {id:'dept',label:'Department',type:'select',options:deptOpts}
+    ],confirmLabel:'Create & assign'});
+    if(!r2)return null;
+    code=r2.code.trim();
+    const {data:nb,error}=await client().from('boxes').insert({code,zone:r2.zone||null,shipment_id:shipmentId,department_code:r2.dept||null}).select('id').single();
+    if(error){toast('⚠ '+error.message);return null;}
+    lastAssignBox=code;
+    return nb.id;
+  }
+  const {data:fb}=await client().from('boxes').select('id').eq('code',code).maybeSingle();
+  if(!fb){toast('Box '+code+' not found');return null;}
+  lastAssignBox=code;
+  return fb.id;
+}
+// Assigns `qty` units of an unboxed item row to `boxId`. If qty covers everything left
+// on the row, the row itself is moved; otherwise the row is split — its own qty is
+// reduced and a new boxed row is inserted with the requested qty, leaving the rest
+// unboxed for a later scan/assign.
+async function assignItemQty(item,qty,boxId){
+  qty=Math.max(1,Math.min(qty,item.qty));
+  if(qty>=item.qty){
+    const {error}=await client().from('items').update({box_id:boxId}).eq('id',item.id);
+    if(error){toast('⚠ '+error.message);return false;}
+  }else{
+    const {error:e1}=await client().from('items').update({qty:item.qty-qty}).eq('id',item.id);
+    if(e1){toast('⚠ '+e1.message);return false;}
+    const {error:e2}=await client().from('items').insert({
+      box_id:boxId,shipment_id:item.shipment_id,sku:item.sku,style:item.style,
+      color:item.color||null,size:item.size||null,brand:item.brand||null,
+      gender:item.gender||null,department_code:item.department_code||null,qty
+    });
+    if(e2){toast('⚠ '+e2.message);return false;}
+  }
+  return true;
+}
+// Scan-to-assign: opens the camera in continuous item-barcode mode, looks each scan up
+// against unboxed items (from a GRN import), confirms a quantity, assigns it — straight
+// into `box` if one's already open, otherwise via pickBoxForShipment — then keeps
+// scanning so several items can be packed back-to-back. `box` and `shipmentId` are
+// mutually exclusive; pass whichever context is known.
+async function scanItems({box,shipmentId}={}){
+  const sid=box?box.shipment_id:shipmentId;
+  let busy=false;
+  const ok=await openScanner(async raw=>{
+    if(busy)return;
+    busy=true;
+    try{
+      const code=raw.trim();
+      if(!code)return;
+      let q=client().from('items').select('*').is('box_id',null).eq('sku',code);
+      if(sid)q=q.eq('shipment_id',sid);
+      const {data:matches,error}=await q.limit(1);
+      if(error){toast('⚠ '+error.message);return;}
+      const item=matches&&matches[0];
+      if(!item){toast(`⚠ No unboxed item found for code "${code}"`);return;}
+      const details=[item.sku&&('Code '+item.sku),item.department_code&&('Dept '+item.department_code),item.size&&('Size '+item.size),item.color,item.brand].filter(Boolean).join(' · ');
+      const r=await showDialog({title:item.style,fields:[
+        {id:'qty',label:'Quantity to assign',type:'number',value:String(item.qty),required:true,hint:`${details} · ${item.qty} unboxed remaining`}
+      ],confirmLabel:box?'Add to '+box.code:'Assign'});
+      if(!r)return;
+      const qty=Math.max(1,Math.min(parseInt(r.qty||'1',10)||1,item.qty));
+      const boxId=box?box.id:await pickBoxForShipment(item.shipment_id,item.style);
+      if(!boxId)return;
+      const success=await assignItemQty(item,qty,boxId);
+      if(success){
+        toast(`✓ ${qty} × ${item.style} assigned`);
+        if(box)viewBox(box.code);
+      }
+    }finally{ busy=false; }
+  },{continuous:true,title:'Scan item barcode',hint:'Point your camera at the item\'s barcode. Keep scanning to add more.'});
+  if(!ok)toast('Enter the item manually instead.');
+}
 async function viewShipment(id){
   loading();
   const [{data:ship},{data:boxes,error},{data:depts},{data:unboxed}] = await Promise.all([
     client().from('shipments').select('*').eq('id',id).single(),
     client().from('boxes').select('*, items(count)').eq('shipment_id',id).order('code'),
     client().from('departments').select('*').eq('shipment_id',id).order('code'),
-    client().from('items').select('id,sku,style,gender,qty').eq('shipment_id',id).is('box_id',null).order('sku')
+    client().from('items').select('id,sku,style,gender,qty,department_code,size,color,brand').eq('shipment_id',id).is('box_id',null).order('sku')
   ]);
   if(error)return errView(error);
   // count items per dept for this shipment
@@ -1175,13 +1275,16 @@ async function viewShipment(id){
     '', 'style="background:var(--muted)"', unassigned, ''
   );
   const unboxedHtml=(unboxed&&unboxed.length)?`
-    <div class="sec-label">To be boxed (${unboxed.length})</div>
+    <div class="sec-label" style="display:flex;align-items:center;gap:8px">
+      <span style="flex:1">To be boxed (${unboxed.length})</span>
+      <button class="btn ghost sm" id="scanAssign" style="flex:none;text-transform:none;letter-spacing:0">📷 Scan to assign</button>
+    </div>
     <div class="card divide" style="max-height:440px;overflow:auto;margin-bottom:8px">
       ${unboxed.map(it=>`
         <div class="lcard" style="cursor:default;background:var(--panel)">
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600">${esc(it.style)}</div>
-            <div class="sub mono">${esc(it.sku||'')}${it.gender?' · '+esc(it.gender):''} · ×${it.qty}</div>
+            <div style="font-weight:600">${esc(it.style)}${it.color?' · '+esc(it.color):''}</div>
+            <div class="sub mono">${[it.sku,it.department_code?'Dept '+it.department_code:'',it.brand,it.gender,it.size?'size '+it.size:''].filter(Boolean).map(esc).join(' · ')} · ×${it.qty}</div>
           </div>
           <button class="btn acc sm" data-assign="${it.id}" data-label="${esc(it.style)}" style="flex:none">→ Box</button>
         </div>`).join('')}
@@ -1316,33 +1419,13 @@ async function viewShipment(id){
   /* ---- assign unboxed items to a box ---- */
   app.querySelectorAll('[data-assign]').forEach(btn=>btn.onclick=async()=>{
     const itemId=btn.dataset.assign;
-    const opts=[{value:'',label:'— choose box —'},...(boxes||[]).map(b=>({value:b.code,label:b.code+(b.zone?' · '+b.zone:'')})),{value:'__new__',label:'➕ New box…'}];
-    const r=await showDialog({title:`Assign "${btn.dataset.label}"`,fields:[
-      {id:'box',label:'Box',type:'select',value:lastAssignBox,options:opts}
-    ],confirmLabel:'Assign'});
-    if(!r)return;
-    let code=r.box;
-    if(!code){toast('Pick a box');return;}
-    let boxId;
-    if(code==='__new__'){
-      const deptOpts=[{value:'',label:'— Unassigned —'},...(depts||[]).map(d=>({value:d.code,label:`${d.code} — ${d.name}`}))];
-      const r2=await showDialog({title:'New box',fields:[
-        {id:'code',label:'Box code',placeholder:'e.g. B-0001',required:true,mono:true},
-        {id:'zone',label:'Location / zone'},
-        {id:'dept',label:'Department',type:'select',options:deptOpts}
-      ],confirmLabel:'Create & assign'});
-      if(!r2)return;
-      code=r2.code.trim();
-      const {data:nb,error}=await client().from('boxes').insert({code,zone:r2.zone||null,shipment_id:id,department_code:r2.dept||null}).select('id').single();
-      if(error)return toast('⚠ '+error.message); boxId=nb.id;
-    }else{
-      const {data:fb}=await client().from('boxes').select('id').eq('code',code).maybeSingle();
-      if(!fb){toast('Box '+code+' not found');return;} boxId=fb.id;
-    }
+    const boxId=await pickBoxForShipment(id,btn.dataset.label);
+    if(!boxId)return;
     const {error}=await client().from('items').update({box_id:boxId}).eq('id',itemId);
     if(error)return toast('⚠ '+error.message);
-    lastAssignBox=code; toast('Assigned to '+code); viewShipment(id);
+    toast('Assigned to '+lastAssignBox); viewShipment(id);
   });
+  $('#scanAssign')?.addEventListener('click',()=>scanItems({shipmentId:id}));
 
   /* ---- box edit/delete ---- */
   app.querySelectorAll('[data-edit-box]').forEach(btn=>btn.onclick=async e=>{
@@ -1432,6 +1515,7 @@ async function viewBox(code){
           <div class="sub mono" id="boxStats">${total} pieces · ${(items||[]).length} lines</div>
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn acc sm" id="addItem">+ Add items</button>
+            <button class="btn ghost sm" id="scanItem">📷 Scan item</button>
             <button class="btn ghost sm" id="printLabel">🏷 Print label</button>
             <button class="btn ghost sm" id="statusBtn">Set status</button>
             <button class="btn danger sm" id="delBox">Delete box</button>
@@ -1450,6 +1534,7 @@ async function viewBox(code){
 
   renderItems(box,items||[]);
   $('#addItem').onclick=()=>openAddForm(box);
+  $('#scanItem').onclick=()=>scanItems({box});
   $('#editZone').onclick=async()=>{
     const r=await showDialog({title:'Edit box details',fields:[
       {id:'zone',label:'Location / zone',value:box.zone||'',placeholder:'e.g. Aisle 3 / Shelf B'}
@@ -1676,7 +1761,7 @@ function viewImport(){
   app.innerHTML=`
     <h1 class="page">Import GRN</h1>
     <div class="card pad" style="margin-bottom:14px">
-      <p class="sub" style="margin-top:0">Upload a Goods Receive Note (Excel <b class="mono">.xlsx</b> or CSV). The app reads <b>item code</b>, <b>description</b>, <b>category</b> and <b>quantity</b> — wherever those columns are — and adds every line to the chosen shipment as <b>unboxed</b> items. You then assign each to a box from the shipment page.</p>
+      <p class="sub" style="margin-top:0">Upload a Goods Receive Note (Excel <b class="mono">.xlsx</b> or CSV). The app reads <b>item code</b>, <b>description</b>, <b>category</b>, <b>quantity</b> and — if present — <b>department</b>, <b>size</b>, <b>colour</b> and <b>brand</b>, wherever those columns are, and adds every line to the chosen shipment as <b>unboxed</b> items. You then assign each to a box from the shipment page, or scan its barcode to assign it in seconds.</p>
       <div style="margin-bottom:12px">
         <label class="f">Add items to shipment *</label>
         <div style="display:flex;gap:8px">
@@ -1745,6 +1830,10 @@ async function handleFile(f){
     const descCol=find([h=>h==='description',h=>h.startsWith('descript'),h=>h==='item name'||h==='name',h=>h.includes('descr')&&!h.includes('cat')]);
     const catCol =find([h=>h.includes('cat')]);
     const qtyCol =find([h=>h==='qty',h=>h.includes('quantity')]);
+    const deptCol =find([h=>h==='dept'||h==='department',h=>h==='dept code'||h==='department code',h=>h.includes('dept')||h.includes('department')]);
+    const sizeCol =find([h=>h==='size',h=>h.includes('size')]);
+    const colorCol=find([h=>h==='colour'||h==='color',h=>h.includes('colour')||h.includes('color')]);
+    const brandCol=find([h=>h==='brand',h=>h.includes('brand')]);
     const rows=[];
     for(let i=hi+1;i<grid.length;i++){
       const r=grid[i];
@@ -1754,7 +1843,11 @@ async function handleFile(f){
       if(!sku)continue;
       const gender=catCol>=0?normGender(String(r[catCol]??'').trim()):null;
       const q=qtyCol>=0?Math.round(parseFloat(r[qtyCol])):NaN;
-      rows.push({sku,style:style||'(no description)',gender,qty:(isNaN(q)||q<=0)?1:q});
+      const department_code=deptCol>=0?(String(r[deptCol]??'').trim()||null):null;
+      const size=sizeCol>=0?(String(r[sizeCol]??'').trim()||null):null;
+      const color=colorCol>=0?(String(r[colorCol]??'').trim()||null):null;
+      const brand=brandCol>=0?(String(r[brandCol]??'').trim()||null):null;
+      rows.push({sku,style:style||'(no description)',gender,qty:(isNaN(q)||q<=0)?1:q,department_code,size,color,brand});
     }
     parsedRows=rows;
     const pcs=rows.reduce((a,r)=>a+r.qty,0);
@@ -1767,8 +1860,8 @@ async function handleFile(f){
           <div><div class="cond" style="font-size:28px;font-weight:700">${pcs}</div><div class="sub">pieces</div></div>
         </div>
         <div style="overflow:auto;margin:14px 0;max-height:300px">
-          <table class="prev"><thead><tr><th>item code</th><th>description</th><th>category</th><th>qty</th></tr></thead>
-          <tbody>${rows.slice(0,15).map(r=>`<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.style)}</td><td>${esc(r.gender||'')}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
+          <table class="prev" style="min-width:640px"><thead><tr><th>item code</th><th>description</th><th>category</th><th>dept</th><th>size</th><th>colour</th><th>brand</th><th>qty</th></tr></thead>
+          <tbody>${rows.slice(0,15).map(r=>`<tr><td class="mono">${esc(r.sku)}</td><td>${esc(r.style)}</td><td>${esc(r.gender||'')}</td><td class="mono">${esc(r.department_code||'')}</td><td>${esc(r.size||'')}</td><td>${esc(r.color||'')}</td><td>${esc(r.brand||'')}</td><td class="mono">${r.qty}</td></tr>`).join('')}</tbody></table>
           ${rows.length>15?`<div class="sub" style="padding:8px">…and ${rows.length-15} more rows</div>`:''}
         </div>
         <div class="bar" id="bar" style="display:none;margin-bottom:10px"><i></i></div>
@@ -1794,7 +1887,7 @@ async function runImport(){
       const {data:ex}=await client().from('items').select('sku').in('sku',skus.slice(i,i+300));
       (ex||[]).forEach(r=>existing.add(r.sku));
     }
-    const all=parsedRows.map(r=>({shipment_id:shipId,box_id:null,sku:r.sku,style:r.style,gender:r.gender||null,qty:r.qty}));
+    const all=parsedRows.map(r=>({shipment_id:shipId,box_id:null,sku:r.sku,style:r.style,gender:r.gender||null,qty:r.qty,department_code:r.department_code||null,size:r.size||null,color:r.color||null,brand:r.brand||null}));
     const items=all.filter(r=>!existing.has(r.sku));
     const skipped=all.length-items.length;
     const chunk=500;
