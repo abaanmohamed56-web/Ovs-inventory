@@ -389,7 +389,7 @@
       <video id="scanVideo" playsinline autoplay muted style="width:100%;display:block;max-height:70vh;object-fit:cover"></video>
       <div class="scan-frame"></div>
     </div>
-    <div class="sbody" style="text-align:center"><p class="sub" id="scanHint" style="margin:0">Point your camera at the box's printed QR code.</p></div>
+    <div class="sbody" style="text-align:center"><p class="sub" id="scanHint" style="margin:0">Point your camera at the box's printed QR code.</p><p class="sub mono" id="scanLast" style="margin:6px 0 0;min-height:1.2em"></p></div>
   </div>
 </div>
 
@@ -823,6 +823,7 @@ async function openScanner(onResult,{continuous=false,title='Scan box QR code',h
   const overlay=document.getElementById('scannerModal');
   document.getElementById('scanTitle').textContent=title;
   document.getElementById('scanHint').textContent=hint;
+  document.getElementById('scanLast').textContent='';
   overlay.classList.add('open');
   modalOpened();
   const video=document.getElementById('scanVideo');
@@ -831,6 +832,7 @@ async function openScanner(onResult,{continuous=false,title='Scan box QR code',h
     scannerControls=await reader.decodeFromConstraints({video:{facingMode:'environment'}},video,(result)=>{
       if(!result)return;
       const raw=result.getText();
+      document.getElementById('scanLast').textContent='Scanned: '+raw;
       if(!continuous)closeScanner();
       onResult(raw);
     });
@@ -1218,7 +1220,7 @@ async function scanItems({box,shipmentId}={}){
       if(error){toast('⚠ '+error.message);return;}
       if(!item){({row:item,error}=await lookup('sku')); if(error){toast('⚠ '+error.message);return;}}
       if(!item){toast(`⚠ No unboxed item found for code "${code}"`);return;}
-      const details=[item.sku&&('SKU '+item.sku),item.department_code&&('Dept '+item.department_code),item.size&&('Size '+item.size),item.color,item.brand].filter(Boolean).join(' · ');
+      const details=[`Code ${code}`,item.sku&&('SKU '+item.sku),item.department_code&&('Dept '+item.department_code),item.size&&('Size '+item.size),item.color,item.brand].filter(Boolean).join(' · ');
       const r=await showDialog({title:item.style,fields:[
         {id:'qty',label:'Quantity to assign',type:'number',value:String(item.qty),required:true,hint:`${details} · ${item.qty} unboxed remaining`}
       ],confirmLabel:box?'Add to '+box.code:'Assign'});
